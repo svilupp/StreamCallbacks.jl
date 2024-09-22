@@ -2,7 +2,7 @@ module StreamCallbacks
 
 using HTTP, JSON3
 
-export StreamCallback, OpenAIStream, AnthropicStream, streamed_request!
+export StreamCallback, StreamChunk, OpenAIStream, AnthropicStream, streamed_request!
 include("interface.jl")
 
 include("shared_methods.jl")

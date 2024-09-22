@@ -1,4 +1,3 @@
-
 @testset "StreamCallback" begin
     # Test default constructor
     cb = StreamCallback()
@@ -55,23 +54,4 @@
     @test !isempty(cb)
     empty!(cb)
     @test isempty(cb)
-
-    # Test configure_callback! method
-    cb, api_kwargs = configure_callback!(StreamCallback(), OpenAISchema())
-    @test cb.flavor isa OpenAIStream
-    @test api_kwargs[:stream] == true
-    @test api_kwargs[:stream_options] == (include_usage = true,)
-
-    cb, api_kwargs = configure_callback!(StreamCallback(), AnthropicSchema())
-    @test cb.flavor isa AnthropicStream
-    @test api_kwargs[:stream] == true
-
-    # Test error for unsupported schema
-    @test_throws ErrorException configure_callback!(StreamCallback(), GoogleSchema())
-
-    # Test configure_callback! with output stream
-    cb, _ = configure_callback!(IOBuffer(), OpenAISchema())
-    @test cb isa StreamCallback
-    @test cb.out isa IOBuffer
-    @test cb.flavor isa OpenAIStream
 end

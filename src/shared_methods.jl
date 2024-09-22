@@ -128,6 +128,7 @@ Do nothing if the output stream is `nothing`.
 @inline function print_content(out::Nothing, text::Any; kwargs...)
     return nothing
 end
+print_content(::Nothing, ::AbstractString; kwargs...) = nothing
 
 """
     callback(cb::AbstractStreamCallback, chunk::AbstractStreamChunk; kwargs...)
