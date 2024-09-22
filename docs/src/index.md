@@ -103,16 +103,16 @@ For more complex use cases, you can define your own `callback` methods. This all
 ### StreamCallback Interface
 
 - **Constructor**: `StreamCallback(; kwargs...)` creates a new `StreamCallback` object.
-- **streamed_request!**: `streamed_request!(cb, url, headers, input)` sends a streaming POST request and processes the response using the callback.
+- **`streamed_request!`**: `streamed_request!(cb, url, headers, input)` sends a streaming POST request and processes the response using the callback.
 
 The `streamed_request!` function internally calls:
 
-- **extract_chunks**: `extract_chunks(flavor, blob)` extracts chunks from the received SSE blob.
-- **callback**: `callback(cb, chunk)` processes each received chunk.
-    - **extract_content**: `extract_content(flavor, chunk)` extracts the content from the chunk.
-    - **print_content**: `print_content(out, text)` prints the content to the output stream.
-- **is_done**: `is_done(flavor, chunk)` checks if the streaming is complete.
-- **build_response_body**: `build_response_body(flavor, cb)` builds the final response body from the collected chunks.
+- **`extract_chunks`**: `extract_chunks(flavor, blob)` extracts chunks from the received SSE blob.
+- **`callback`**: `callback(cb, chunk)` processes each received chunk.
+    - **`extract_content`**: `extract_content(flavor, chunk)` extracts the content from the chunk.
+    - **`print_content`**: `print_content(out, text)` prints the content to the output stream.
+- **`is_done`**: `is_done(flavor, chunk)` checks if the streaming is complete.
+- **`build_response_body`**: `build_response_body(flavor, cb)` builds the final response body from the collected chunks.
 
 ### Custom Callback Example
 

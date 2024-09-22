@@ -1,48 +1,48 @@
 @testset "is_done" begin
     # Test OpenAIStream
-    openai_flavor = PT.OpenAIStream()
+    openai_flavor = OpenAIStream()
 
     # Test when streaming is done
-    done_chunk = PT.StreamChunk(data = "[DONE]")
-    @test PT.is_done(openai_flavor, done_chunk) == true
+    done_chunk = StreamChunk(data = "[DONE]")
+    @test is_done(openai_flavor, done_chunk) == true
 
     # Test when streaming is not done
-    not_done_chunk = PT.StreamChunk(data = "Some content")
-    @test PT.is_done(openai_flavor, not_done_chunk) == false
+    not_done_chunk = StreamChunk(data = "Some content")
+    @test is_done(openai_flavor, not_done_chunk) == false
 
     # Test with empty data
-    empty_chunk = PT.StreamChunk(data = "")
-    @test PT.is_done(openai_flavor, empty_chunk) == false
+    empty_chunk = StreamChunk(data = "")
+    @test is_done(openai_flavor, empty_chunk) == false
 
     # Test AnthropicStream
-    anthropic_flavor = PT.AnthropicStream()
+    anthropic_flavor = AnthropicStream()
 
     # Test when streaming is done due to error
-    error_chunk = PT.StreamChunk(event = :error)
-    @test PT.is_done(anthropic_flavor, error_chunk) == true
+    error_chunk = StreamChunk(event = :error)
+    @test is_done(anthropic_flavor, error_chunk) == true
 
     # Test when streaming is done due to message stop
-    stop_chunk = PT.StreamChunk(event = :message_stop)
-    @test PT.is_done(anthropic_flavor, stop_chunk) == true
+    stop_chunk = StreamChunk(event = :message_stop)
+    @test is_done(anthropic_flavor, stop_chunk) == true
 
     # Test when streaming is not done
-    continue_chunk = PT.StreamChunk(event = :content_block_start)
-    @test PT.is_done(anthropic_flavor, continue_chunk) == false
+    continue_chunk = StreamChunk(event = :content_block_start)
+    @test is_done(anthropic_flavor, continue_chunk) == false
 
     # Test with nil event
-    nil_event_chunk = PT.StreamChunk(event = nothing)
-    @test PT.is_done(anthropic_flavor, nil_event_chunk) == false
+    nil_event_chunk = StreamChunk(event = nothing)
+    @test is_done(anthropic_flavor, nil_event_chunk) == false
 
     # Test with unsupported flavor
-    struct UnsupportedFlavor <: PT.AbstractStreamFlavor end
+    struct UnsupportedFlavor <: AbstractStreamFlavor end
     unsupported_flavor = UnsupportedFlavor()
-    @test_throws ArgumentError PT.is_done(unsupported_flavor, PT.StreamChunk())
+    @test_throws ArgumentError is_done(unsupported_flavor, StreamChunk())
 end
 
 @testset "extract_chunks" begin
     # Test basic functionality
     blob = "event: start\ndata: {\"key\": \"value\"}\n\nevent: end\ndata: {\"status\": \"complete\"}\n\n"
-    chunks, spillover = PT.extract_chunks(PT.OpenAIStream(), blob)
+    chunks, spillover = extract_chunks(OpenAIStream(), blob)
     @test length(chunks) == 2
     @test chunks[1].event == :start
     @test chunks[1].json == JSON3.read("{\"key\": \"value\"}")
@@ -52,10 +52,10 @@ end
 
     # Test with spillover
     blob_with_spillover = "event: start\ndata: {\"key\": \"value\"}\n\nevent: continue\ndata: {\"partial\": \"data"
-    @test_logs (:info, r"Incomplete message detected") chunks, spillover=PT.extract_chunks(
-        PT.OpenAIStream(), blob_with_spillover; verbose = true)
-    chunks, spillover = PT.extract_chunks(
-        PT.OpenAIStream(), blob_with_spillover; verbose = true)
+    @test_logs (:info, r"Incomplete message detected") chunks, spillover=extract_chunks(
+        OpenAIStream(), blob_with_spillover; verbose = true)
+    chunks, spillover = extract_chunks(
+        OpenAIStream(), blob_with_spillover; verbose = true)
     @test length(chunks) == 1
     @test chunks[1].event == :start
     @test chunks[1].json == JSON3.read("{\"key\": \"value\"}")
@@ -64,8 +64,8 @@ end
     # Test with incoming spillover
     incoming_spillover = spillover
     blob_after_spillover = "\"}\n\nevent: end\ndata: {\"status\": \"complete\"}\n\n"
-    chunks, spillover = PT.extract_chunks(
-        PT.OpenAIStream(), blob_after_spillover; spillover = incoming_spillover)
+    chunks, spillover = extract_chunks(
+        OpenAIStream(), blob_after_spillover; spillover = incoming_spillover)
     @test length(chunks) == 2
     @test chunks[1].json == JSON3.read("{\"partial\": \"data\"}")
     @test chunks[2].event == :end
@@ -74,14 +74,14 @@ end
 
     # Test with multiple data fields per event
     multi_data_blob = "event: multi\ndata: line1\ndata: line2\n\n"
-    chunks, spillover = PT.extract_chunks(PT.OpenAIStream(), multi_data_blob)
+    chunks, spillover = extract_chunks(OpenAIStream(), multi_data_blob)
     @test length(chunks) == 1
     @test chunks[1].event == :multi
     @test chunks[1].data == "line1line2"
 
     # Test with non-JSON data
     non_json_blob = "event: text\ndata: This is plain text\n\n"
-    chunks, spillover = PT.extract_chunks(PT.OpenAIStream(), non_json_blob)
+    chunks, spillover = extract_chunks(OpenAIStream(), non_json_blob)
     @test length(chunks) == 1
     @test chunks[1].event == :text
     @test chunks[1].data == "This is plain text"
@@ -89,14 +89,14 @@ end
 
     # Test with empty blob
     empty_blob = ""
-    chunks, spillover = PT.extract_chunks(PT.OpenAIStream(), empty_blob)
+    chunks, spillover = extract_chunks(OpenAIStream(), empty_blob)
     @test isempty(chunks)
     @test spillover == ""
 
     # Test with malformed JSON
     malformed_json_blob = "event: error\ndata: {\"key\": \"value\",}\n\n"
-    chunks, spillover = PT.extract_chunks(
-        PT.OpenAIStream(), malformed_json_blob; verbose = true)
+    chunks, spillover = extract_chunks(
+        OpenAIStream(), malformed_json_blob; verbose = true)
     @test length(chunks) == 1
     @test chunks[1].event == :error
     @test chunks[1].data == "{\"key\": \"value\",}"
@@ -104,7 +104,7 @@ end
 
     # Test with multiple data fields, no event
     blob_no_event = "data: {\"key\": \"value\"}\n\ndata: {\"partial\": \"data\"}\n\ndata: {\"status\": \"complete\"}\n\n"
-    chunks, spillover = PT.extract_chunks(PT.OpenAIStream(), blob_no_event)
+    chunks, spillover = extract_chunks(OpenAIStream(), blob_no_event)
     @test length(chunks) == 3
     @test chunks[1].data == "{\"key\": \"value\"}"
     @test chunks[2].data == "{\"partial\": \"data\"}"
@@ -121,15 +121,15 @@ end
     data: [DONE]
 
     """
-    chunks, spillover = PT.extract_chunks(PT.OpenAIStream(), s1)
+    chunks, spillover = extract_chunks(OpenAIStream(), s1)
     @test length(chunks) == 3
     @test chunks[1].event == :test
     @test chunks[2].event == :test2
     @test chunks[3].data == "[DONE]"
     @test spillover == ""
 
-    @test PT.extract_content(PT.OpenAIStream(), chunks[1]) == ","
-    @test PT.extract_content(PT.OpenAIStream(), chunks[2]) == " "
+    @test extract_content(OpenAIStream(), chunks[1]) == ","
+    @test extract_content(OpenAIStream(), chunks[2]) == " "
 
     # Test case for s2: Multiple data chunks without events
     s2 = """data: {"id":"chatcmpl-A3zvq9GWhji7h1Gz0gKNIn9r2tABJ","object":"chat.completion.chunk","created":1725516414,"model":"gpt-4o-mini-2024-07-18","system_fingerprint":"fp_f905cf32a9","choices":[{"index":0,"delta":{"content":","},"logprobs":null,"finish_reason":null}]}
@@ -139,7 +139,7 @@ end
       data: [DONE]
 
       """
-    chunks, spillover = PT.extract_chunks(PT.OpenAIStream(), s2)
+    chunks, spillover = extract_chunks(OpenAIStream(), s2)
     @test length(chunks) == 3
     @test all(chunk.event === nothing for chunk in chunks)
     @test chunks[3].data == "[DONE]"
@@ -153,7 +153,7 @@ end
     data: [DONE]
 
     """
-    chunks, spillover = PT.extract_chunks(PT.OpenAIStream(), s3)
+    chunks, spillover = extract_chunks(OpenAIStream(), s3)
     @test length(chunks) == 2
     @test chunks[1].data == "abc"
     @test chunks[2].data == "[DONE]"
@@ -170,13 +170,13 @@ end
     data: [DONE]
 
     """
-    chunks, spillover = PT.extract_chunks(PT.OpenAIStream(), s4a)
+    chunks, spillover = extract_chunks(OpenAIStream(), s4a)
     @test length(chunks) == 1
     @test chunks[1].event == :test
     @test !isempty(spillover)
 
-    chunks, final_spillover = PT.extract_chunks(
-        PT.OpenAIStream(), s4b; spillover = spillover)
+    chunks, final_spillover = extract_chunks(
+        OpenAIStream(), s4b; spillover = spillover)
     @test length(chunks) == 2
     @test chunks[2].data == "[DONE]"
     @test final_spillover == ""
@@ -185,72 +185,72 @@ end
 @testset "print_content" begin
     # Test printing to IO
     io = IOBuffer()
-    PT.print_content(io, "Test content")
+    print_content(io, "Test content")
     @test String(take!(io)) == "Test content"
 
     # Test printing to Channel
     ch = Channel{String}(1)
-    PT.print_content(ch, "Channel content")
+    print_content(ch, "Channel content")
     @test take!(ch) == "Channel content"
 
     # Test printing to nothing
-    @test PT.print_content(nothing, "No output") === nothing
+    @test print_content(nothing, "No output") === nothing
 end
 
 @testset "callback" begin
     # Test with valid content
     io = IOBuffer()
-    cb = PT.StreamCallback(out = io, flavor = PT.OpenAIStream())
-    valid_chunk = PT.StreamChunk(
+    cb = StreamCallback(out = io, flavor = OpenAIStream())
+    valid_chunk = StreamChunk(
         nothing,
         """{"choices":[{"delta":{"content":"Hello"}}]}""",
         JSON3.read("""{"choices":[{"delta":{"content":"Hello"}}]}""")
     )
-    PT.callback(cb, valid_chunk)
+    callback(cb, valid_chunk)
     @test String(take!(io)) == "Hello"
 
     # Test with no content
     io = IOBuffer()
-    cb = PT.StreamCallback(out = io, flavor = PT.OpenAIStream())
-    no_content_chunk = PT.StreamChunk(
+    cb = StreamCallback(out = io, flavor = OpenAIStream())
+    no_content_chunk = StreamChunk(
         nothing,
         """{"choices":[{"delta":{}}]}""",
         JSON3.read("""{"choices":[{"delta":{}}]}""")
     )
-    PT.callback(cb, no_content_chunk)
+    callback(cb, no_content_chunk)
     @test isempty(take!(io))
 
     # Test with Channel output
     ch = Channel{String}(1)
-    cb = PT.StreamCallback(out = ch, flavor = PT.OpenAIStream())
-    PT.callback(cb, valid_chunk)
+    cb = StreamCallback(out = ch, flavor = OpenAIStream())
+    callback(cb, valid_chunk)
     @test take!(ch) == "Hello"
 
     # Test with nothing output
-    cb = PT.StreamCallback(out = nothing, flavor = PT.OpenAIStream())
-    @test PT.callback(cb, valid_chunk) === nothing
+    cb = StreamCallback(out = nothing, flavor = OpenAIStream())
+    @test callback(cb, valid_chunk) === nothing
 end
 
 @testset "handle_error_message" begin
     # Test case 1: No error
-    chunk = PT.StreamChunk(:content, "Normal content", nothing)
-    @test isnothing(PT.handle_error_message(chunk))
+    chunk = StreamChunk(:content, "Normal content", nothing)
+    @test isnothing(handle_error_message(chunk))
 
     # Test case 2: Error event
-    error_chunk = PT.StreamChunk(:error, "Error occurred", nothing)
-    @test_logs (:warn, "Error detected in the streaming response: Error occurred") PT.handle_error_message(error_chunk)
+    error_chunk = StreamChunk(:error, "Error occurred", nothing)
+    @test_logs (:warn, "Error detected in the streaming response: Error occurred") handle_error_message(error_chunk)
 
     # Test case 4: Detailed error in JSON
     obj = Dict(:error => Dict(:message => "Invalid input", :type => "user_error"))
-    detailed_error_chunk = PT.StreamChunk(
+    detailed_error_chunk = StreamChunk(
         nothing, JSON3.write(obj), JSON3.read(JSON3.write(obj)))
     @test_logs (:warn,
-        r"Message: Invalid input") PT.handle_error_message(detailed_error_chunk)
+        r"Message: Invalid input") handle_error_message(detailed_error_chunk)
     @test_logs (:warn,
-        r"Type: user_error") PT.handle_error_message(detailed_error_chunk)
+        r"Type: user_error") handle_error_message(detailed_error_chunk)
 
     # Test case 5: Throw on error
-    @test_throws Exception PT.handle_error_message(error_chunk, throw_on_error = true)
+    @test_throws Exception handle_error_message(error_chunk, throw_on_error = true)
 end
 
 ## Not working yet!!
@@ -278,8 +278,8 @@ end
 #         "messages" => [Dict("role" => "user", "content" => "Say hello")]
 #     )))
 
-#     cb = PT.StreamCallback(flavor = PT.OpenAIStream())
-#     response = PT.streamed_request!(cb, url, headers, input)
+#     cb = StreamCallback(flavor = OpenAIStream())
+#     response = streamed_request!(cb, url, headers, input)
 
 #     # Assertions
 #     @test response.status == 200
@@ -289,7 +289,7 @@ end
 #     @test cb.chunks[3].data == "[DONE]"
 
 #     # Test build_response_body
-#     body = PT.build_response_body(PT.OpenAIStream(), cb)
+#     body = build_response_body(OpenAIStream(), cb)
 #     @test body[:choices][1][:message][:content] == "Hello world"
 #     # Cleanup
 #     close(server)
