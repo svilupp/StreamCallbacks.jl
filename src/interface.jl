@@ -70,6 +70,7 @@ Available flavors:
 abstract type AbstractStreamFlavor end
 struct OpenAIStream <: AbstractStreamFlavor end
 struct AnthropicStream <: AbstractStreamFlavor end
+struct OllamaStream <: AbstractStreamFlavor end
 
 ## Default implementations
 """

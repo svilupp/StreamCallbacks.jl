@@ -11,4 +11,6 @@ include("stream_openai.jl")
 
 include("stream_anthropic.jl")
 
+include("stream_ollama.jl")
+
 end
