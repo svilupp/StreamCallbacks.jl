@@ -1,16 +1,18 @@
 name = "StreamCallbacks"
 uuid = "c1b9e933-98a0-46fc-8ea7-3b58b195fb0a"
 authors = ["J S <49557684+svilupp@users.noreply.github.com> and contributors"]
-version = "0.2.0"
+version = "0.3.0"
 
 [deps]
 HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
 JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 
 [compat]
 Aqua = "0.8"
 HTTP = "1.10"
 JSON3 = "1.14"
+PrecompileTools = "1.2"
 Test = "1"
 julia = "1.10"
 
