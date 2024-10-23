@@ -33,6 +33,7 @@ StreamCallbacks.jl is designed to unify streaming interfaces for Large Language 
 
 - **OpenAI API** (and all compatible providers)
 - **Anthropic API**
+- **Ollama API** (`api/chat` endpoint, OpenAI-compatible endpoint)
 
 ## Installation
 
