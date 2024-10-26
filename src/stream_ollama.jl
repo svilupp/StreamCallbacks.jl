@@ -10,7 +10,7 @@
     for (bi, chunk) in enumerate(blob_split)
         isempty(chunk) && continue
         event_name = nothing
-        data = chunk
+        data = rstrip(chunk, '\n')
         ## try to build a JSON object if it's a well-formed JSON string
         json = if startswith(data, '{') && endswith(data, '}')
             try
