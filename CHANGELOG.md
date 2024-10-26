@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.4.0]
+
+### Added
+- Export the flavor `OllamaStream` for Ollama streaming responses.
+
+### Fixed
+- Fixes assertion for content-type in `OllamaStream` response (`application/x-ndjson`, not `text/event-stream`).
+
 ## [0.3.0]
 
 ### Added

@@ -1,6 +1,33 @@
 # Custom methods for Ollama streaming -- flavor=OllamaStream()
 # works only for Ollama `api/chat` endpoint!!
 
+@inline function extract_chunks(flavor::OllamaStream, blob::AbstractString;
+        spillover::AbstractString = "", verbose::Bool = false, kwargs...)
+    @assert spillover=="" "OllamaStream does not support spillover"
+    chunks = StreamChunk[]
+    ## Assumes application/x-ndjson format, not SSE!
+    blob_split = split(blob, "\n\n")
+    for (bi, chunk) in enumerate(blob_split)
+        isempty(chunk) && continue
+        event_name = nothing
+        data = rstrip(chunk, '\n')
+        ## try to build a JSON object if it's a well-formed JSON string
+        json = if startswith(data, '{') && endswith(data, '}')
+            try
+                JSON3.read(data)
+            catch e
+                verbose && @warn "Cannot parse JSON: $data"
+                nothing
+            end
+        else
+            nothing
+        end
+        ## Create a new chunk
+        push!(chunks, StreamChunk(event_name, data, json))
+    end
+    return chunks, spillover
+end
+
 "Terminates the stream when the `done` key in the JSON object is `true`."
 function is_done(flavor::OllamaStream, chunk::StreamChunk; kwargs...)
     !isnothing(chunk.json) && haskey(chunk.json, "done") && chunk.json["done"] == true
