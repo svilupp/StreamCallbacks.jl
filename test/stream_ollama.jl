@@ -1,3 +1,67 @@
+@testset "extract_chunks" begin
+    # Test case 1: Single valid JSON chunk
+    flavor = OllamaStream()
+    blob = """{"message":{"content":"Hello"},"done":false}\n\n"""
+    chunks, spillover = extract_chunks(flavor, blob)
+    @test length(chunks) == 1
+    @test chunks[1].data == """{"message":{"content":"Hello"},"done":false}"""
+    @test chunks[1].json == JSON3.read("""{"message":{"content":"Hello"},"done":false}""")
+    @test spillover == ""
+
+    # Test case 2: Multiple valid JSON chunks
+    flavor = OllamaStream()
+    blob = """{"message":{"content":"Hello"},"done":false}\n\n{"message":{"content":" world"},"done":false}\n\n{"done":true}\n\n"""
+    chunks, spillover = extract_chunks(flavor, blob)
+    @test length(chunks) == 3
+    @test chunks[1].data == """{"message":{"content":"Hello"},"done":false}"""
+    @test chunks[2].data == """{"message":{"content":" world"},"done":false}"""
+    @test chunks[3].data == """{"done":true}"""
+    @test spillover == ""
+
+    # Test case 3: Empty blob
+    flavor = OllamaStream()
+    blob = ""
+    chunks, spillover = extract_chunks(flavor, blob)
+    @test isempty(chunks)
+    @test spillover == ""
+
+    # Test case 4: Non-JSON content
+    flavor = OllamaStream()
+    blob = "This is not JSON\n\n"
+    chunks, spillover = extract_chunks(flavor, blob)
+    @test length(chunks) == 1
+    @test chunks[1].data == "This is not JSON"
+    @test chunks[1].json === nothing
+    @test spillover == ""
+
+    # Test case 5: Mixed valid and invalid JSON
+    flavor = OllamaStream()
+    blob = """{"valid":true}\n\nInvalid JSON\n\n{"also_valid":42}\n\n"""
+    chunks, spillover = extract_chunks(flavor, blob)
+    @test length(chunks) == 3
+    @test chunks[1].data == """{"valid":true}"""
+    @test chunks[1].json == JSON3.read("""{"valid":true}""")
+    @test chunks[2].data == "Invalid JSON"
+    @test chunks[2].json === nothing
+    @test chunks[3].data == """{"also_valid":42}"""
+    @test chunks[3].json == JSON3.read("""{"also_valid":42}""")
+    @test spillover == ""
+
+    # Test case 6: Verbose mode with invalid JSON
+    flavor = OllamaStream()
+    blob = """{invalid_json}\n\n"""
+    io = IOBuffer()
+    chunks, spillover = extract_chunks(flavor, blob, verbose = true, io = io)
+    @test length(chunks) == 1
+    @test chunks[1].data == """{invalid_json}"""
+    @test chunks[1].json === nothing
+    @test spillover == ""
+    @test_logs (
+        :warn,
+        r"Cannot parse JSON:"
+    ) extract_chunks(flavor, blob, verbose = true, io = io)
+end
+
 @testset "is_done" begin
     # Test case 1: JSON with done = true
     done_chunk = StreamChunk(

@@ -1,6 +1,8 @@
 # Simulate some data
 blob = "event: start\ndata: {\"key\": \"value\"}\n\nevent: end\ndata: {\"status\": \"complete\"}\n\n"
 chunks, spillover = extract_chunks(OpenAIStream(), blob)
+blob = "{\"key\":\"value\", \"done\":true}"
+chunks, spillover = extract_chunks(OllamaStream(), blob)
 
 # Chunk examples
 io = IOBuffer()

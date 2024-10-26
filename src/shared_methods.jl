@@ -13,6 +13,7 @@ Returns a list of `StreamChunk` and the next spillover (if message was incomplet
         spillover::AbstractString = "", verbose::Bool = false, kwargs...)
     chunks = StreamChunk[]
     next_spillover = ""
+    ## TODO: Implement first-class support of newline delimited JSON // application/x-ndjson
     ## SSE come separated by double-newlines
     blob_split = split(blob, "\n\n")
     for (bi, chunk) in enumerate(blob_split)
@@ -204,7 +205,12 @@ function streamed_request!(cb::AbstractStreamCallback, url, headers, input; kwar
                         for header in response.headers
                         if lowercase(header[1]) == "content-type"]
         @assert length(content_type)==1 "Content-Type header must be present and unique"
-        @assert occursin("text/event-stream", content_type[1]) "Content-Type header include the type text/event-stream"
+        ## Provide barebone support for application/x-ndjson (Ollama) -- it will emit "buffer spillover warnings
+        @assert occursin(
+            "application/x-ndjson", content_type[1])||!(cb.flavor isa OllamaStream) "For OllamaStream flavor, Content-Type must be application/x-ndjson"
+        ## For non-ollama streams, we accept text/event-stream
+        @assert !(cb.flavor isa
+                  OllamaStream)&&occursin("text/event-stream", content_type[1]) "Content-Type header include the type text/event-stream"
 
         isdone = false
         ## messages might be incomplete, so we need to keep track of the spillover
