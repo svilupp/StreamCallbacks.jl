@@ -1,7 +1,7 @@
 name = "StreamCallbacks"
 uuid = "c1b9e933-98a0-46fc-8ea7-3b58b195fb0a"
 authors = ["J S <49557684+svilupp@users.noreply.github.com> and contributors"]
-version = "0.5.0"
+version = "0.5.1"
 
 [deps]
 HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"

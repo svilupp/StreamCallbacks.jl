@@ -96,7 +96,8 @@ function build_response_body(
         # overwrite the old choices
         response[:choices] = choices
         response[:object] = "chat.completion"
-        response[:usage] = usage
+        ## Provide usage only if we have it
+        !isnothing(usage) && (response[:usage] = usage)
     end
     return response
 end
