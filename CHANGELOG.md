@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.5.1]
+
+### Fixed
+- Fix for OpenAI streaming responses to include usage only if it is provided.
+
 ## [0.5.0]
 
 ### Updated
