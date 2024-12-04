@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.1]
 
 ### Fixed
-- Fix for OpenAI streaming responses to include usage only if it is provided.
+- Fix for OpenAI streaming responses to include usage only if it is provided. To get usage stats, it must be explicitly requested by the user like this `api_kwargs = (stream = true, stream_options = (include_usage = true,))`
 
 ## [0.5.0]
 
