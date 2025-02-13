@@ -4,3 +4,10 @@
 /Manifest.toml
 /docs/Manifest.toml
 /docs/build/
+
+# macOS
+.DS_Store
+# VSCode
+.vscode/
+# Scratch files
+_*.jl

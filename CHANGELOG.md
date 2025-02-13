@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.5.2]
+
+### Fixed
+- Fix for Anthropic streaming responses where the `message_start` event is not sent and stream starts with `message_delta` event (we must handle that response is `nothing`).
+
 ## [0.5.1]
 
 ### Fixed
