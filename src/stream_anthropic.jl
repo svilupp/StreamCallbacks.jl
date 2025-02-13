@@ -56,8 +56,10 @@ function build_response_body(
         end
         ## Update stop reason and usage
         if chunk.event == :message_delta
-            response = merge(response, get(chunk.json, :delta, Dict()))
-            usage = merge(usage, get(chunk.json, :usage, Dict()))
+            response = isnothing(response) ? get(chunk.json, :delta, Dict()) :
+                       merge(response, get(chunk.json, :delta, Dict()))
+            usage = isnothing(usage) ? get(chunk.json, :usage, Dict()) :
+                    merge(usage, get(chunk.json, :usage, Dict()))
         end
 
         ## Load text chunks
