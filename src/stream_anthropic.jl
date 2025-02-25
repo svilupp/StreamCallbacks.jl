@@ -10,21 +10,26 @@ end
 Extract the content from the chunk.
 """
 function extract_content(flavor::AnthropicStream, chunk::AbstractStreamChunk; kwargs...)
-    if !isnothing(chunk.json)
-        ## Can contain more than one choice for multi-sampling, but ignore for callback
-        ## Get only the first choice, index=0 // index=1 is for tools etc
-        index = get(chunk.json, :index, nothing)
-        isnothing(index) || !iszero(index) && return nothing
-
-        delta_block = get(chunk.json, :content_block, nothing)
-        if isnothing(delta_block)
-            ## look for the delta segment
-            delta_block = get(chunk.json, :delta, Dict())
-        end
-        out = get(delta_block, :text, nothing)
-    else
-        nothing
+    isnothing(chunk.json) && return nothing
+    
+    # Handle text_delta format specifically
+    if get(chunk.json, :type, nothing) == "content_block_delta" &&
+       haskey(chunk.json, :delta) &&
+       get(chunk.json[:delta], :type, nothing) == "text_delta"
+        return get(chunk.json[:delta], :text, nothing)
     end
+    
+    # Handle other formats (original implementation)
+    index = get(chunk.json, :index, nothing)
+    isnothing(index) || !iszero(index) && return nothing
+
+    delta_block = get(chunk.json, :content_block, nothing)
+    if isnothing(delta_block)
+        # look for the delta segment
+        delta_block = get(chunk.json, :delta, Dict())
+    end
+    
+    get(delta_block, :text, nothing)
 end
 
 """
