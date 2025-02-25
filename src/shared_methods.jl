@@ -209,9 +209,16 @@ function streamed_request!(cb::AbstractStreamCallback, url, headers, input; kwar
             @assert occursin(
                 "application/x-ndjson", lowercase(content_type[1])) "For OllamaStream flavor, Content-Type must be application/x-ndjson"
         else
-            ## For non-ollama streams, we accept text/event-stream
+            ## For non-ollama streams, we accept only text/event-stream
             @assert occursin(
-                "text/event-stream", lowercase(content_type[1])) "Content-Type header include the type text/event-stream"
+                "text/event-stream", lowercase(content_type[1])) """
+                Content-Type header should include the type text/event-stream.
+                Received type: $(content_type[1])
+                Status code: $(response.status)
+                Response headers:\n - $(join(["$k: $v" for (k,v) in response.headers], "\n - "))
+                Response body: $(String(response.body))
+                Please check the model you are using and that you set `stream=true`.
+                """
         end
 
         isdone = false
