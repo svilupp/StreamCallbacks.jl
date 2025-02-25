@@ -6,12 +6,12 @@ end
 
 """
     extract_content(flavor::AnthropicStream, chunk::AbstractStreamChunk;
-        include_thinking::Bool = false, kwargs...)
+        include_thinking::Bool = true, kwargs...)
 
 Extract the content from the chunk.
 """
 function extract_content(flavor::AnthropicStream, chunk::AbstractStreamChunk;
-        include_thinking::Bool = false, kwargs...)
+        include_thinking::Bool = true, kwargs...)
     isnothing(chunk.json) && return nothing
 
     # Track message state
