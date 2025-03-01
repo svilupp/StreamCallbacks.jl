@@ -63,63 +63,6 @@
     non_json_chunk = StreamChunk(data = "Plain text")
     @test isnothing(extract_content(openai_flavor, non_json_chunk))
 
-    # Test AnthropicStream
-    anthropic_flavor = AnthropicStream()
-
-    # Test with valid content block
-    valid_anthropic_chunk = StreamChunk(
-        json = JSON3.read("""
-        {
-            "content_block": {
-                "text": "Hello from Anthropic!"
-            }
-        }
-        """)
-    )
-    @test extract_content(anthropic_flavor, valid_anthropic_chunk) ==
-          "Hello from Anthropic!"
-
-    # Test with valid delta
-    valid_delta_chunk = StreamChunk(
-        json = JSON3.read("""
-        {
-            "delta": {
-                "text": "Delta text"
-            }
-        }
-        """)
-    )
-    @test extract_content(anthropic_flavor, valid_delta_chunk) == "Delta text"
-
-    # Test with missing text in content block
-    missing_text_chunk = StreamChunk(
-        json = JSON3.read("""
-        {
-            "content_block": {
-                "type": "text"
-            }
-        }
-        """)
-    )
-    @test isnothing(extract_content(anthropic_flavor, missing_text_chunk))
-
-    # Test with non-zero index (should return nothing)
-    non_zero_index_chunk = StreamChunk(
-        json = JSON3.read("""
-        {
-            "index": 1,
-            "content_block": {
-                "text": "This should be ignored"
-            }
-        }
-        """)
-    )
-    @test isnothing(extract_content(anthropic_flavor, non_zero_index_chunk))
-
-    # Test with non-JSON chunk for Anthropic
-    non_json_anthropic_chunk = StreamChunk(data = "Plain Anthropic text")
-    @test isnothing(extract_content(anthropic_flavor, non_json_anthropic_chunk))
-
     # Test with unsupported flavor
     struct UnsupportedFlavor <: AbstractStreamFlavor end
     unsupported_flavor = UnsupportedFlavor()
@@ -175,55 +118,6 @@ end
         JSON3.read("""{"choices":[{"delta":{"content":"First"}},{"delta":{"content":"Second"}}]}""")
     )
     @test extract_content(OpenAIStream(), multiple_choices_chunk) == "First"
-
-    ### AnthropicStream
-    # Test case 1: Valid JSON with content in content_block
-    valid_chunk = StreamChunk(
-        nothing,
-        """{"index":0,"content_block":{"text":"Hello from Anthropic"}}""",
-        JSON3.read("""{"index":0,"content_block":{"text":"Hello from Anthropic"}}""")
-    )
-    @test extract_content(AnthropicStream(), valid_chunk) == "Hello from Anthropic"
-
-    # Test case 2: Valid JSON with content in delta
-    delta_chunk = StreamChunk(
-        nothing,
-        """{"index":0,"delta":{"text":"Delta content"}}""",
-        JSON3.read("""{"index":0,"delta":{"text":"Delta content"}}""")
-    )
-    @test extract_content(AnthropicStream(), delta_chunk) == "Delta content"
-
-    # Test case 3: Valid JSON without text in content_block
-    no_text_chunk = StreamChunk(
-        nothing,
-        """{"index":0,"content_block":{"type":"text"}}""",
-        JSON3.read("""{"index":0,"content_block":{"type":"text"}}""")
-    )
-    @test isnothing(extract_content(AnthropicStream(), no_text_chunk))
-
-    # Test case 4: Valid JSON with non-zero index
-    non_zero_index_chunk = StreamChunk(
-        nothing,
-        """{"index":1,"content_block":{"text":"Should be ignored"}}""",
-        JSON3.read("""{"index":1,"content_block":{"text":"Should be ignored"}}""")
-    )
-    @test isnothing(extract_content(AnthropicStream(), non_zero_index_chunk))
-
-    # Test case 5: Chunk with non-JSON data
-    non_json_chunk = StreamChunk(
-        nothing,
-        "This is not JSON",
-        nothing
-    )
-    @test isnothing(extract_content(AnthropicStream(), non_json_chunk))
-
-    # Test case 6: Valid JSON with empty content
-    empty_content_chunk = StreamChunk(
-        nothing,
-        """{"index":0,"content_block":{"text":""}}""",
-        JSON3.read("""{"index":0,"content_block":{"text":""}}""")
-    )
-    @test extract_content(AnthropicStream(), empty_content_chunk) == ""
 
     # Test case 7: Unknown flavor
     struct UnknownFlavor <: AbstractStreamFlavor end

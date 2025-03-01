@@ -14,20 +14,32 @@ function extract_content(flavor::AnthropicStream, chunk::AbstractStreamChunk;
         include_thinking::Bool = true, kwargs...)
     isnothing(chunk.json) && return nothing
 
-    # Track message state
+    # Get chunk type
     chunk_type = get(chunk.json, :type, nothing)
 
-    # Handle content_block_delta format
-    if chunk_type == "content_block_delta"
+    # Handle content blocks (start and stop)
+    if chunk_type == "content_block_start" || chunk_type == "content_block_stop"
+        content_block = get(chunk.json, :content_block, Dict())
+        block_type = get(content_block, :type, nothing)
+
+        # Extract text content
+        if block_type == "text"
+            return get(content_block, :text, nothing)
+            # Extract thinking content if enabled
+        elseif include_thinking && block_type == "thinking"
+            return get(content_block, :thinking, nothing)
+        end
+        # Handle content block deltas
+    elseif chunk_type == "content_block_delta"
         delta = get(chunk.json, :delta, Dict())
         delta_type = get(delta, :type, nothing)
 
-        # For thinking blocks
-        if include_thinking && delta_type == "thinking_delta"
-            return get(delta, :thinking, nothing)
-            # For text blocks
-        elseif delta_type == "text_delta"
+        # Extract text delta content
+        if delta_type == "text_delta"
             return get(delta, :text, nothing)
+            # Extract thinking delta content if enabled
+        elseif include_thinking && delta_type == "thinking_delta"
+            return get(delta, :thinking, nothing)
         end
     end
 
