@@ -103,3 +103,61 @@
     @test response[:stop_reason] == "max_tokens"
     @test isnothing(response[:stop_sequence])
 end
+
+@testset "extract_content-AnthropicStream" begin
+    # Test case 1: Nil JSON should return nothing
+    chunk_nil = StreamChunk(:content_block_delta, "{}", nothing)
+    @test isnothing(extract_content(AnthropicStream(), chunk_nil))
+
+    # Test case 2: Non-content_block_delta chunk type should return nothing
+    chunk_wrong_type = StreamChunk(
+        :content_block_start,
+        """{"type":"content_block_start","content_block":{"type":"text","text":"Hello"}}""",
+        JSON3.read("""{"type":"content_block_start","content_block":{"type":"text","text":"Hello"}}""")
+    )
+    @test isnothing(extract_content(AnthropicStream(), chunk_wrong_type))
+
+    # Test case 3: Basic text_delta extraction
+    chunk_text = StreamChunk(
+        :content_block_delta,
+        """{"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello world"}}""",
+        JSON3.read("""{"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello world"}}""")
+    )
+    @test extract_content(AnthropicStream(), chunk_text) == "Hello world"
+
+    # Test case 4: thinking_delta extraction with include_thinking=true (default)
+    chunk_thinking = StreamChunk(
+        :content_block_delta,
+        """{"type":"content_block_delta","delta":{"type":"thinking_delta","thinking":"This is a thought"}}""",
+        JSON3.read("""{"type":"content_block_delta","delta":{"type":"thinking_delta","thinking":"This is a thought"}}""")
+    )
+    @test extract_content(AnthropicStream(), chunk_thinking) == "This is a thought"
+
+    # Test case 5: thinking_delta with include_thinking=false should return nothing
+    @test isnothing(extract_content(
+        AnthropicStream(), chunk_thinking, include_thinking = false))
+
+    # Test case 6: Content block delta with unexpected delta type
+    chunk_unknown = StreamChunk(
+        :content_block_delta,
+        """{"type":"content_block_delta","delta":{"type":"unknown_delta","content":"Something"}}""",
+        JSON3.read("""{"type":"content_block_delta","delta":{"type":"unknown_delta","content":"Something"}}""")
+    )
+    @test isnothing(extract_content(AnthropicStream(), chunk_unknown))
+
+    # Test case 7: Missing text field in text_delta should return nothing
+    chunk_missing_text = StreamChunk(
+        :content_block_delta,
+        """{"type":"content_block_delta","delta":{"type":"text_delta"}}""",
+        JSON3.read("""{"type":"content_block_delta","delta":{"type":"text_delta"}}""")
+    )
+    @test isnothing(extract_content(AnthropicStream(), chunk_missing_text))
+
+    # Test case 8: Missing thinking field in thinking_delta should return nothing
+    chunk_missing_thinking = StreamChunk(
+        :content_block_delta,
+        """{"type":"content_block_delta","delta":{"type":"thinking_delta"}}""",
+        JSON3.read("""{"type":"content_block_delta","delta":{"type":"thinking_delta"}}""")
+    )
+    @test isnothing(extract_content(AnthropicStream(), chunk_missing_thinking))
+end
