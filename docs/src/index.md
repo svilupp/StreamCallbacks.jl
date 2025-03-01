@@ -20,11 +20,11 @@ StreamCallbacks.jl is designed to unify streaming interfaces for Large Language 
 
 ## Installation
 
-You can install StreamCallbacks.jl via the package manager (it's not registered yet):
+You can install StreamCallbacks.jl via the package manager:
 
 ```julia
 import Pkg
-Pkg.add(path="https://github.com/svilupp/StreamCallbacks.jl")
+Pkg.add("StreamCallbacks")
 ```
 
 ## Getting Started

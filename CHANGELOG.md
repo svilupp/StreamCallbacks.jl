@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.6.0]
+
+### Added
+- Support for Anthropic's text_delta format in content extraction in case thinking is enabled (disable it like this `cb = StreamCallback(; out = stdout, flavor = AnthropicStream(), kwargs = (; include_thinking = false))`). We now let all index chunks pass through.
+
+### Fixed
+- Fixed assertion for content-type to be more informative when you hit limits or some model error (see the status code and response headers).
+
 ## [0.5.2]
 
 ### Fixed

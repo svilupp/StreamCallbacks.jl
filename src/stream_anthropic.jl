@@ -5,26 +5,45 @@
 end
 
 """
-    extract_content(flavor::AnthropicStream, chunk::AbstractStreamChunk; kwargs...)
+    extract_content(flavor::AnthropicStream, chunk::AbstractStreamChunk;
+        include_thinking::Bool = true, kwargs...)
 
 Extract the content from the chunk.
 """
-function extract_content(flavor::AnthropicStream, chunk::AbstractStreamChunk; kwargs...)
-    if !isnothing(chunk.json)
-        ## Can contain more than one choice for multi-sampling, but ignore for callback
-        ## Get only the first choice, index=0 // index=1 is for tools etc
-        index = get(chunk.json, :index, nothing)
-        isnothing(index) || !iszero(index) && return nothing
+function extract_content(flavor::AnthropicStream, chunk::AbstractStreamChunk;
+        include_thinking::Bool = true, kwargs...)
+    isnothing(chunk.json) && return nothing
 
-        delta_block = get(chunk.json, :content_block, nothing)
-        if isnothing(delta_block)
-            ## look for the delta segment
-            delta_block = get(chunk.json, :delta, Dict())
+    # Get chunk type
+    chunk_type = get(chunk.json, :type, nothing)
+
+    # Handle content blocks (start and stop)
+    if chunk_type == "content_block_start" || chunk_type == "content_block_stop"
+        content_block = get(chunk.json, :content_block, Dict())
+        block_type = get(content_block, :type, nothing)
+
+        # Extract text content
+        if block_type == "text"
+            return get(content_block, :text, nothing)
+            # Extract thinking content if enabled
+        elseif include_thinking && block_type == "thinking"
+            return get(content_block, :thinking, nothing)
         end
-        out = get(delta_block, :text, nothing)
-    else
-        nothing
+        # Handle content block deltas
+    elseif chunk_type == "content_block_delta"
+        delta = get(chunk.json, :delta, Dict())
+        delta_type = get(delta, :type, nothing)
+
+        # Extract text delta content
+        if delta_type == "text_delta"
+            return get(delta, :text, nothing)
+            # Extract thinking delta content if enabled
+        elseif include_thinking && delta_type == "thinking_delta"
+            return get(delta, :thinking, nothing)
+        end
     end
+
+    return nothing
 end
 
 """
