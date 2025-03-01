@@ -1,9 +1,5 @@
 # StreamCallbacks.jl 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://svilupp.github.io/StreamCallbacks.jl/stable/) 
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://svilupp.github.io/StreamCallbacks.jl/dev/) 
-[![Build Status](https://github.com/svilupp/StreamCallbacks.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/svilupp/StreamCallbacks.jl/actions/workflows/CI.yml?query=branch%3Amain) 
-[![Coverage](https://codecov.io/gh/svilupp/StreamCallbacks.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/svilupp/StreamCallbacks.jl) 
-[![Aqua](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://svilupp.github.io/StreamCallbacks.jl/stable/) [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://svilupp.github.io/StreamCallbacks.jl/dev/) [![Build Status](https://github.com/svilupp/StreamCallbacks.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/svilupp/StreamCallbacks.jl/actions/workflows/CI.yml?query=branch%3Amain) [![Coverage](https://codecov.io/gh/svilupp/StreamCallbacks.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/svilupp/StreamCallbacks.jl) [![Aqua](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
 
 StreamCallbacks.jl is designed to unify streaming interfaces for Large Language Models (LLMs) across multiple providers. It simplifies handling Server-Sent Events (SSE), provides easy debugging by collecting all chunks, and offers various built-in sinks (e.g., `stdout`, channels, pipes) for streaming data. You can also extend it to implement custom logic for processing streamed data.
 
