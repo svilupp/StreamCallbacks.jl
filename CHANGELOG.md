@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.6.1]
+
+### Fixed
+- Fixed a rare bug where the `response <: JSON3.Object` by the end of the stream, which is immutable. We now make a copy of the response in this case before operating on it.
+
 ## [0.6.0]
 
 ### Added
