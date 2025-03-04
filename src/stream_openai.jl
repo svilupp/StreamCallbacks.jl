@@ -91,6 +91,8 @@ function build_response_body(
     end
     ## We know we have at least one chunk, let's use it for final response
     if !isnothing(response)
+        ## We need to make sure we're operating on a copy of the response
+        response isa JSON3.Object && (response = copy(response))
         # flatten the choices_dict into an array
         choices = [choices_output[index] for index in sort(collect(keys(choices_output)))]
         # overwrite the old choices

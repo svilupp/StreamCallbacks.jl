@@ -67,6 +67,8 @@ function build_response_body(
     end
     ## We know we have at least one chunk, let's use it for final response
     if !isnothing(response) && haskey(response, :message)
+        ## We need to make sure we're operating on a copy of the response
+        response isa JSON3.Object && (response = copy(response))
         response[:message][:content] = String(take!(content))
         !isnothing(usage) && merge!(response, usage)
     end
