@@ -96,6 +96,8 @@ function build_response_body(
     end
     ## We know we have at least one chunk, let's use it for final response
     if !isnothing(response)
+        ## We need to make sure we're operating on a copy of the response
+        response isa JSON3.Object && (response = copy(response))
         response[:content] = [Dict(:type => "text", :text => String(take!(content_buf)))]
         !isnothing(usage) && (response[:usage] = usage)
     end
