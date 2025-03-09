@@ -75,9 +75,9 @@ function build_response_body(
         end
         ## Update stop reason and usage
         if chunk.event == :message_delta
-            response = isnothing(response) ? get(chunk.json, :delta, Dict()) :
+            response = isnothing(response) ? get(copy(chunk.json), :delta, Dict()) :
                        merge(response, get(chunk.json, :delta, Dict()))
-            usage = isnothing(usage) ? get(chunk.json, :usage, Dict()) :
+            usage = isnothing(usage) ? get(copy(chunk.json), :usage, Dict()) :
                     merge(usage, get(chunk.json, :usage, Dict()))
         end
 
