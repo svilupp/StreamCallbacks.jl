@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Support for Google Gemini API streaming responses (`flavor = GoogleStream()`).
 
 ### Fixed
+
+## [0.7.0]
+
+### Added
+- Support for Google Gemini API streaming responses (`flavor = GoogleStream()`).
 
 ## [0.6.1]
 
