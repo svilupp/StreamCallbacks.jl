@@ -168,7 +168,7 @@ Handles error messages from the streaming response.
         ## Define whether to throw an error
         error_msg = "Error detected in the streaming response: $(error_str)"
         if throw_on_error
-            throw(Exception(error_msg))
+            throw(ErrorException(error_msg))
         else
             @warn error_msg
         end
