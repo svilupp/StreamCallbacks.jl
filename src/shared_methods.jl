@@ -5,87 +5,73 @@
     extract_chunks(flavor::AbstractStreamFlavor, blob::AbstractString;
         spillover::AbstractString = "", verbose::Bool = false, kwargs...)
 
-Extract the chunks from the received SSE blob. Shared by all streaming flavors currently.
-
-Returns a list of `StreamChunk` and the next spillover (if message was incomplete).
+Extract the chunks from the received SSE blob. Simplified version that preserves "data: " in content.
 """
 @inline function extract_chunks(flavor::AbstractStreamFlavor, blob::AbstractString;
         spillover::AbstractString = "", verbose::Bool = false, kwargs...)
-    chunks = StreamChunk[]
+    
+    # Handle any spillover from previous incomplete message
+    full_blob = spillover * blob
+    
+    # Split on double newlines (SSE message boundaries)
+    messages = split(full_blob, r"\n\n")
+    
+    # Check if last message is incomplete (no trailing \n\n)
     next_spillover = ""
-    ## SSE come separated by double-newlines
-    blob_split = split(blob, "\n\n")
-    for (bi, chunk) in enumerate(blob_split)
-        isempty(chunk) && continue
-        event_split = split(chunk, "event: ")
-        has_event = length(event_split) > 1
-        # if length>1, we know it was there!
-        for event_blob in event_split
-            isempty(event_blob) && continue
-            event_name = nothing
-            data_buf = IOBuffer()
-            data_splits = split(event_blob, "data: ")
-            for i in eachindex(data_splits)
-                isempty(data_splits[i]) && continue
-                if i == 1 & has_event && !isempty(data_splits[i])
-                    ## we have an event name
-                    event_name = strip(data_splits[i]) |> Symbol
-                elseif bi == 1 && i == 1 && !isempty(data_splits[i])
-                    ## in the first part of the first blob, it must be a spillover
-                    spillover = string(spillover, rstrip(data_splits[i], '\n'))
-                    verbose && @info "Buffer spillover detected: $(spillover)"
-                elseif i > 1
-                    ## any subsequent data blobs are accummulated into the data buffer
-                    ## there can be multiline data that must be concatenated
-                    data_chunk = rstrip(data_splits[i], '\n')
-                    write(data_buf, data_chunk)
-                end
-            end
-
-            ## Parse the spillover
-            if bi == 1 && !isempty(spillover)
-                data = spillover
-                json = if startswith(data, '{') && endswith(data, '}')
-                    try
-                        JSON3.read(data)
-                    catch e
-                        verbose && @warn "Cannot parse JSON: $data"
-                        nothing
-                    end
-                else
-                    nothing
-                end
-                ## ignore event name
-                push!(chunks, StreamChunk(; data = spillover, json = json))
-                # reset the spillover
-                spillover = ""
-            end
-            ## On the last iteration of the blob, check if we spilled over
-            if bi == length(blob_split) && length(data_splits) > 1 &&
-               !isempty(strip(data_splits[end]))
-                verbose && @info "Incomplete message detected: $(data_splits[end])"
-                next_spillover = String(take!(data_buf))
-                ## Do not save this chunk
-            else
-                ## Try to parse the data as JSON
-                data = String(take!(data_buf))
-                isempty(data) && continue
-                ## try to build a JSON object if it's a well-formed JSON string
-                json = if startswith(data, '{') && endswith(data, '}')
-                    try
-                        JSON3.read(data)
-                    catch e
-                        verbose && @warn "Cannot parse JSON: $data"
-                        nothing
-                    end
-                else
-                    nothing
-                end
-                ## Create a new chunk
-                push!(chunks, StreamChunk(event_name, data, json))
-            end
-        end
+    if !endswith(full_blob, "\n\n") && !isempty(messages)
+        # Last message might be incomplete, save it for next time
+        next_spillover = pop!(messages)
+        verbose && @info "Incomplete message detected, spillover: $(repr(next_spillover))"
     end
+    
+    chunks = StreamChunk[]
+    
+    for message in messages
+        isempty(strip(message)) && continue
+        
+        # Parse line starts
+        event_name = nothing
+        data_parts = String[]
+        
+        for line in split(message, '\n')
+            line = rstrip(line, '\r')  # Handle \r\n
+            if startswith(line, "data:")
+                # Extract everything after "data:" 
+                data_content = line[6:end]
+                push!(data_parts, data_content)
+            elseif startswith(line, "event:")
+                event_name = Symbol(strip(line[7:end]))
+            end
+            # Ignore other SSE fields like id:, retry:, comments
+        end
+        
+        isempty(data_parts) && continue
+        
+        # Join multiple data lines with newlines (SSE spec)
+        raw_data = join(data_parts, '\n')
+        
+        # More robust JSON detection - handle both objects and arrays
+        parsed_json = if !isempty(strip(raw_data))
+            stripped = strip(raw_data)
+            is_json = (startswith(stripped, '{') && endswith(stripped, '}')) ||
+                     (startswith(stripped, '[') && endswith(stripped, ']'))
+            if is_json
+                try
+                    JSON3.read(raw_data)
+                catch e
+                    verbose && @warn "Cannot parse JSON: $(repr(raw_data))"
+                    nothing
+                end
+            else
+                nothing
+            end
+        else
+            nothing
+        end
+        
+        push!(chunks, StreamChunk(event_name, raw_data, parsed_json))
+    end
+    
     return chunks, next_spillover
 end
 
