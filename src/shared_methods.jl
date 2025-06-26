@@ -5,7 +5,7 @@
     extract_chunks(flavor::AbstractStreamFlavor, blob::AbstractString;
         spillover::AbstractString = "", verbose::Bool = false, kwargs...)
 
-Extract the chunks from the received SSE blob. Simplified version that preserves "data: " in content.
+Extract the chunks from the received SSE blob. Correctly implements SSE spec field parsing.
 """
 @inline function extract_chunks(flavor::AbstractStreamFlavor, blob::AbstractString;
         spillover::AbstractString = "", verbose::Bool = false, kwargs...)
@@ -36,11 +36,19 @@ Extract the chunks from the received SSE blob. Simplified version that preserves
         for line in split(message, '\n')
             line = rstrip(line, '\r')  # Handle \r\n
             if startswith(line, "data:")
-                # Extract everything after "data:" 
-                data_content = line[6:end]
-                push!(data_parts, data_content)
+                # SSE spec: collect characters after first colon, remove leading space if present
+                field_value = line[6:end]  # Everything after "data:"
+                if startswith(field_value, " ")
+                    field_value = field_value[2:end]  # Remove leading space per SSE spec
+                end
+                push!(data_parts, field_value)
             elseif startswith(line, "event:")
-                event_name = Symbol(strip(line[7:end]))
+                # Same rule applies for event field
+                field_value = line[7:end]  # Everything after "event:"
+                if startswith(field_value, " ")
+                    field_value = field_value[2:end]  # Remove leading space per SSE spec
+                end
+                event_name = Symbol(field_value)
             end
             # Ignore other SSE fields like id:, retry:, comments
         end
@@ -49,6 +57,10 @@ Extract the chunks from the received SSE blob. Simplified version that preserves
         
         # Join multiple data lines with newlines (SSE spec)
         raw_data = join(data_parts, '\n')
+        # SSE spec: remove final trailing newline if present
+        if endswith(raw_data, '\n')
+            raw_data = raw_data[1:end-1]
+        end
         
         # More robust JSON detection - handle both objects and arrays
         parsed_json = if !isempty(strip(raw_data))
