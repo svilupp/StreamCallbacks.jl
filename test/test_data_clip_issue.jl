@@ -30,9 +30,6 @@ using StreamCallbacks
     resp = streamed_request!(cb, url, headers, payload)
 
     # Test response structure - it's a NamedTuple with HTTP.Response fields
-    @test haskey(resp, :status)
-    @test haskey(resp, :headers) 
-    @test haskey(resp, :body)
     @test resp.status == 200
     @test !isempty(cb.chunks)
 

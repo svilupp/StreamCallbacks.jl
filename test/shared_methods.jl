@@ -50,7 +50,7 @@ end
     @test chunks[2].json == JSON3.read("{\"status\": \"complete\"}")
     @test spillover == ""
 
-    # Test with spillover
+    # Test with spillover - SSE spec compliant
     blob_with_spillover = "event: start\ndata: {\"key\": \"value\"}\n\nevent: continue\ndata: {\"partial\": \"data"
     @test_logs (:info, r"Incomplete message detected") chunks, spillover=extract_chunks(
         OpenAIStream(), blob_with_spillover; verbose = true)
@@ -59,7 +59,7 @@ end
     @test length(chunks) == 1
     @test chunks[1].event == :start
     @test chunks[1].json == JSON3.read("{\"key\": \"value\"}")
-    @test spillover == "{\"partial\": \"data"
+    @test spillover == "event: continue\ndata: {\"partial\": \"data"
 
     # Test with incoming spillover
     incoming_spillover = spillover
@@ -72,12 +72,12 @@ end
     @test chunks[2].json == JSON3.read("{\"status\": \"complete\"}")
     @test spillover == ""
 
-    # Test with multiple data fields per event
+    # Test with multiple data fields per event - SSE spec compliant (joined with newlines)
     multi_data_blob = "event: multi\ndata: line1\ndata: line2\n\n"
     chunks, spillover = extract_chunks(OpenAIStream(), multi_data_blob)
     @test length(chunks) == 1
     @test chunks[1].event == :multi
-    @test chunks[1].data == "line1line2"
+    @test chunks[1].data == "line1\nline2"
 
     # Test with non-JSON data
     non_json_blob = "event: text\ndata: This is plain text\n\n"
@@ -145,7 +145,7 @@ end
     @test chunks[3].data == "[DONE]"
     @test spillover == ""
 
-    # Test case for s3: Simple data chunks
+    # Test case for s3: Simple data chunks - SSE spec compliant (joined with newlines)
     s3 = """data: a
     data: b
     data: c
@@ -155,7 +155,7 @@ end
     """
     chunks, spillover = extract_chunks(OpenAIStream(), s3)
     @test length(chunks) == 2
-    @test chunks[1].data == "abc"
+    @test chunks[1].data == "a\nb\nc"
     @test chunks[2].data == "[DONE]"
     @test spillover == ""
 
