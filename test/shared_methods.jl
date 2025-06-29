@@ -50,21 +50,23 @@ end
     @test chunks[2].json == JSON3.read("{\"status\": \"complete\"}")
     @test spillover == ""
 
-    # Test with spillover
+    # Test with spillover - SSE spec compliant
     blob_with_spillover = "event: start\ndata: {\"key\": \"value\"}\n\nevent: continue\ndata: {\"partial\": \"data"
-    @test_logs (:info, r"Incomplete message detected") chunks, spillover=extract_chunks(
+    @test_logs (:info, r"Incomplete message detected") chunks,
+    spillover=extract_chunks(
         OpenAIStream(), blob_with_spillover; verbose = true)
     chunks, spillover = extract_chunks(
         OpenAIStream(), blob_with_spillover; verbose = true)
     @test length(chunks) == 1
     @test chunks[1].event == :start
     @test chunks[1].json == JSON3.read("{\"key\": \"value\"}")
-    @test spillover == "{\"partial\": \"data"
+    @test spillover == "event: continue\ndata: {\"partial\": \"data"
 
     # Test with incoming spillover
     incoming_spillover = spillover
     blob_after_spillover = "\"}\n\nevent: end\ndata: {\"status\": \"complete\"}\n\n"
-    chunks, spillover = extract_chunks(
+    chunks,
+    spillover = extract_chunks(
         OpenAIStream(), blob_after_spillover; spillover = incoming_spillover)
     @test length(chunks) == 2
     @test chunks[1].json == JSON3.read("{\"partial\": \"data\"}")
@@ -72,12 +74,12 @@ end
     @test chunks[2].json == JSON3.read("{\"status\": \"complete\"}")
     @test spillover == ""
 
-    # Test with multiple data fields per event
+    # Test with multiple data fields per event - SSE spec compliant (joined with newlines)
     multi_data_blob = "event: multi\ndata: line1\ndata: line2\n\n"
     chunks, spillover = extract_chunks(OpenAIStream(), multi_data_blob)
     @test length(chunks) == 1
     @test chunks[1].event == :multi
-    @test chunks[1].data == "line1line2"
+    @test chunks[1].data == "line1\nline2"
 
     # Test with non-JSON data
     non_json_blob = "event: text\ndata: This is plain text\n\n"
@@ -145,7 +147,7 @@ end
     @test chunks[3].data == "[DONE]"
     @test spillover == ""
 
-    # Test case for s3: Simple data chunks
+    # Test case for s3: Simple data chunks - SSE spec compliant (joined with newlines)
     s3 = """data: a
     data: b
     data: c
@@ -155,7 +157,7 @@ end
     """
     chunks, spillover = extract_chunks(OpenAIStream(), s3)
     @test length(chunks) == 2
-    @test chunks[1].data == "abc"
+    @test chunks[1].data == "a\nb\nc"
     @test chunks[2].data == "[DONE]"
     @test spillover == ""
 
@@ -180,6 +182,139 @@ end
     @test length(chunks) == 2
     @test chunks[2].data == "[DONE]"
     @test final_spillover == ""
+
+    # Test with real Anthropic LLM response streams captured from test_data_clip_issue.jl
+    # This tests SSE spec compliance with actual data that includes "data:" patterns in the content
+    real_anthropic_blob = """event: message_start
+data: {"type":"message_start","message":{"id":"msg_01Kf4tf7utCTCiPTBYteMCUS","type":"message","role":"assistant","model":"claude-3-5-haiku-20241022","content":[],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":32,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":2,"service_tier":"standard"}}}
+
+event: content_block_start
+data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}
+
+event: ping
+data: {"type": "ping"}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Here you"}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":" go:\\n\\ndata"}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":": [1], data"}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":": [2], data"}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":": [3], data"}}
+
+event: message_stop
+data: {"type":"message_stop"}
+
+"""
+    chunks, spillover = extract_chunks(AnthropicStream(), real_anthropic_blob)
+    @test length(chunks) == 9
+    @test spillover == ""
+
+    # Test that SSE spec compliance correctly handles "data:" patterns in content
+    content_deltas = filter(chunk -> chunk.event == :content_block_delta, chunks)
+    @test length(content_deltas) == 5
+
+    # Verify that raw data contains "data" patterns exactly as sent by LLM  
+    # Note: Looking for "data" in JSON content, not the SSE "data:" field
+    data_containing_chunks = filter(
+        chunk -> contains(chunk.data, "\"text\":\"") && contains(chunk.data, "data"),
+        content_deltas)
+    @test length(data_containing_chunks) == 4  # chunks 5,6,7,8 contain "data" in the text field
+
+    # Test specific content extraction
+    @test chunks[1].event == :message_start
+    @test chunks[2].event == :content_block_start
+    @test chunks[3].event == :ping
+    @test chunks[9].event == :message_stop
+
+    # Test that content contains the exact "data:" patterns as generated by LLM
+    text_delta_chunk = chunks[6] # chunk with ": [1], data"
+    @test text_delta_chunk.event == :content_block_delta
+    @test contains(text_delta_chunk.data, "data")
+    parsed_json = text_delta_chunk.json
+    @test parsed_json.delta.text == ": [1], data"
+end
+
+@testset "SSE spec compliance fixes" begin
+    # Test 1: BOM handling - UTF-8 BOM should be stripped from field names
+    bom_blob = "\ufeffdata: message with BOM\nevent: test_event\n\n"
+    chunks, spillover = extract_chunks(OpenAIStream(), bom_blob)
+    @test length(chunks) == 1
+    @test chunks[1].data == "message with BOM"
+    @test chunks[1].event == :test_event
+    @test spillover == ""
+
+    # Test 2: BOM in field value should be preserved
+    bom_value_blob = "data: \ufeffmessage with BOM in value\n\n"
+    chunks, spillover = extract_chunks(OpenAIStream(), bom_value_blob)
+    @test length(chunks) == 1
+    @test chunks[1].data == "\ufeffmessage with BOM in value"
+
+    # Test 3: Empty data fields should create proper empty strings (no artifacts)
+    empty_data_blob = "data:\ndata: \ndata:  \nevent: test\n\n"
+    chunks, spillover = extract_chunks(OpenAIStream(), empty_data_blob)
+    @test length(chunks) == 1
+    @test chunks[1].data == "\n\n "  # Three data fields: empty, space, two spaces
+    @test chunks[1].event == :test
+
+    # Test 4: Multiple empty data fields
+    multi_empty_blob = "data:\ndata:\ndata:\n\n"
+    chunks, spillover = extract_chunks(OpenAIStream(), multi_empty_blob)
+    @test length(chunks) == 1
+    @test chunks[1].data == "\n\n"  # Three empty data fields joined with newlines
+
+    # Test 5: Empty event field should be ignored
+    empty_event_blob = "data: test message\nevent:\nevent: \n\n"
+    chunks, spillover = extract_chunks(OpenAIStream(), empty_event_blob)
+    @test length(chunks) == 1
+    @test chunks[1].data == "test message"
+    @test chunks[1].event === nothing  # Empty event fields should be ignored
+
+    # Test 6: Error handling - malformed lines should be handled gracefully
+    # The error handling prevents crashes but may not always generate warnings
+    malformed_blob = "data: valid message\n\x00invalid: line with null\ndata: another valid\n\n"
+    chunks, spillover = extract_chunks(OpenAIStream(), malformed_blob; verbose = false)
+    @test length(chunks) == 1
+    @test chunks[1].data == "valid message\nanother valid"
+
+    # Test 7: Invalid UTF-8 sequences should be handled gracefully
+    invalid_utf8_blob = "data: valid\n\xff\xfe: invalid utf8\ndata: also valid\n\n"
+    chunks, spillover = extract_chunks(OpenAIStream(), invalid_utf8_blob; verbose = false)  # No warnings for silent test
+    @test length(chunks) == 1
+    @test chunks[1].data == "valid\nalso valid"
+
+    # Test 8: Unicode field names with BOM
+    unicode_bom_blob = "\ufeff测试: unicode field\ndata: test data\n\n"
+    chunks, spillover = extract_chunks(OpenAIStream(), unicode_bom_blob)
+    @test length(chunks) == 1
+    @test chunks[1].data == "test data"  # Unicode field name should be ignored (not 'data')
+
+    # Test 9: Mixed valid/invalid lines
+    mixed_blob = """data: line1
+    invalid line without colon
+    event: test_event
+    data: line2
+    : this is a comment
+    data: line3
+
+    """
+    chunks, spillover = extract_chunks(OpenAIStream(), mixed_blob)
+    @test length(chunks) == 1
+    @test chunks[1].data == "line1\nline2\nline3"
+    @test chunks[1].event == :test_event
+
+    # Test 10: Edge case - field name that becomes empty after BOM removal
+    edge_bom_blob = "\ufeff: value after empty field\ndata: valid data\n\n"
+    chunks, spillover = extract_chunks(OpenAIStream(), edge_bom_blob)
+    @test length(chunks) == 1
+    @test chunks[1].data == "valid data"  # BOM+colon line should be treated as comment
 end
 
 @testset "print_content" begin
@@ -251,6 +386,13 @@ end
 
     # Test case 5: Throw on error
     @test_throws Exception handle_error_message(error_chunk, throw_on_error = true)
+end
+
+@testset "extract_content" begin
+    # Test unimplemented flavor throws error
+    struct TestFlavor <: AbstractStreamFlavor end
+    test_chunk = StreamChunk(nothing, "test data", nothing)
+    @test_throws ArgumentError extract_content(TestFlavor(), test_chunk)
 end
 
 ## Not working yet!!

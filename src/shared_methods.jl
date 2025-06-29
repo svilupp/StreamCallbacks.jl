@@ -5,87 +5,108 @@
     extract_chunks(flavor::AbstractStreamFlavor, blob::AbstractString;
         spillover::AbstractString = "", verbose::Bool = false, kwargs...)
 
-Extract the chunks from the received SSE blob. Shared by all streaming flavors currently.
-
-Returns a list of `StreamChunk` and the next spillover (if message was incomplete).
+Extract the chunks from the received SSE blob. Correctly implements SSE spec field parsing.
 """
 @inline function extract_chunks(flavor::AbstractStreamFlavor, blob::AbstractString;
         spillover::AbstractString = "", verbose::Bool = false, kwargs...)
-    chunks = StreamChunk[]
-    next_spillover = ""
-    ## SSE come separated by double-newlines
-    blob_split = split(blob, "\n\n")
-    for (bi, chunk) in enumerate(blob_split)
-        isempty(chunk) && continue
-        event_split = split(chunk, "event: ")
-        has_event = length(event_split) > 1
-        # if length>1, we know it was there!
-        for event_blob in event_split
-            isempty(event_blob) && continue
-            event_name = nothing
-            data_buf = IOBuffer()
-            data_splits = split(event_blob, "data: ")
-            for i in eachindex(data_splits)
-                isempty(data_splits[i]) && continue
-                if i == 1 & has_event && !isempty(data_splits[i])
-                    ## we have an event name
-                    event_name = strip(data_splits[i]) |> Symbol
-                elseif bi == 1 && i == 1 && !isempty(data_splits[i])
-                    ## in the first part of the first blob, it must be a spillover
-                    spillover = string(spillover, rstrip(data_splits[i], '\n'))
-                    verbose && @info "Buffer spillover detected: $(spillover)"
-                elseif i > 1
-                    ## any subsequent data blobs are accummulated into the data buffer
-                    ## there can be multiline data that must be concatenated
-                    data_chunk = rstrip(data_splits[i], '\n')
-                    write(data_buf, data_chunk)
-                end
-            end
 
-            ## Parse the spillover
-            if bi == 1 && !isempty(spillover)
-                data = spillover
-                json = if startswith(data, '{') && endswith(data, '}')
-                    try
-                        JSON3.read(data)
-                    catch e
-                        verbose && @warn "Cannot parse JSON: $data"
-                        nothing
-                    end
-                else
-                    nothing
+    # Handle any spillover from previous incomplete message
+    full_blob = spillover * blob
+
+    # Split on double newlines (SSE message boundaries)
+    messages = split(full_blob, r"\n\n")
+
+    # Check if last message is incomplete (no trailing \n\n)
+    next_spillover = ""
+    if !endswith(full_blob, "\n\n") && !isempty(messages)
+        # Last message might be incomplete, save it for next time
+        next_spillover = pop!(messages)
+        verbose && @info "Incomplete message detected, spillover: $(repr(next_spillover))"
+    end
+
+    chunks = StreamChunk[]
+
+    for message in messages
+        isempty(strip(message)) && continue
+
+        # Parse line starts
+        event_name = nothing
+        data_parts = String[]
+
+        for line in split(message, '\n')
+            try
+                line = rstrip(line, '\r')  # Handle \r\n
+
+                # Handle comments (lines starting with ":")
+                if startswith(line, ":")
+                    continue  # Ignore comment lines per SSE spec
                 end
-                ## ignore event name
-                push!(chunks, StreamChunk(; data = spillover, json = json))
-                # reset the spillover
-                spillover = ""
-            end
-            ## On the last iteration of the blob, check if we spilled over
-            if bi == length(blob_split) && length(data_splits) > 1 &&
-               !isempty(strip(data_splits[end]))
-                verbose && @info "Incomplete message detected: $(data_splits[end])"
-                next_spillover = String(take!(data_buf))
-                ## Do not save this chunk
-            else
-                ## Try to parse the data as JSON
-                data = String(take!(data_buf))
-                isempty(data) && continue
-                ## try to build a JSON object if it's a well-formed JSON string
-                json = if startswith(data, '{') && endswith(data, '}')
-                    try
-                        JSON3.read(data)
-                    catch e
-                        verbose && @warn "Cannot parse JSON: $data"
-                        nothing
-                    end
-                else
-                    nothing
+
+                # Parse field:value lines
+                colon_pos = findfirst(':', line)
+                if isnothing(colon_pos)
+                    continue  # Skip lines without colons
                 end
-                ## Create a new chunk
-                push!(chunks, StreamChunk(event_name, data, json))
+
+                field_name = line[1:(colon_pos - 1)]
+                field_value = line[(colon_pos + 1):end]
+
+                # Strip UTF-8 BOM from first field name if present (SSE spec compliance)
+                if !isempty(field_name) && field_name[1] == '\ufeff'
+                    field_name = field_name[nextind(field_name, 1):end]
+                end
+
+                # Remove leading space from field value if present (SSE spec)
+                if startswith(field_value, " ")
+                    field_value = field_value[2:end]
+                end
+
+                # Handle data fields: only add non-empty field values to avoid artifacts
+                if field_name == "data"
+                    # SSE spec: empty data fields should contribute empty string, not be skipped
+                    push!(data_parts, field_value)
+                elseif field_name == "event"
+                    # Event field should not be empty
+                    if !isempty(field_value)
+                        event_name = Symbol(field_value)
+                    end
+                end
+                # Note: id and retry fields are ignored but could be parsed if needed
+            catch e
+                # Handle malformed lines gracefully
+                verbose && @warn "Malformed SSE line ignored: $(repr(line)). Error: $e"
+                continue
             end
         end
+
+        isempty(data_parts) && continue
+
+        # Join multiple data lines with newlines (SSE spec)
+        # Keep raw_data exactly as received from LLM for debugging and testing
+        raw_data = join(data_parts, '\n')
+
+        # More robust JSON detection - handle both objects and arrays
+        parsed_json = if !isempty(strip(raw_data))
+            stripped = strip(raw_data)
+            is_json = (startswith(stripped, '{') && endswith(stripped, '}')) ||
+                      (startswith(stripped, '[') && endswith(stripped, ']'))
+            if is_json
+                try
+                    JSON3.read(raw_data)
+                catch e
+                    verbose && @warn "Cannot parse JSON: $(repr(raw_data))"
+                    nothing
+                end
+            else
+                nothing
+            end
+        else
+            nothing
+        end
+
+        push!(chunks, StreamChunk(event_name, raw_data, parsed_json))
     end
+
     return chunks, next_spillover
 end
 
@@ -226,7 +247,8 @@ function streamed_request!(cb::AbstractStreamCallback, url, headers, input; kwar
         spillover = ""
         while !eof(stream) || !isdone
             masterchunk = String(readavailable(stream))
-            chunks, spillover = extract_chunks(
+            chunks,
+            spillover = extract_chunks(
                 cb.flavor, masterchunk; verbose, spillover, cb.kwargs...)
 
             for chunk in chunks
