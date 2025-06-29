@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.6.2]
+
+### Fixed
+- Fixes a bug in processing SSE messages in `data: ` strings in the payload of the message
+
 ## [0.6.1]
 
 ### Fixed
