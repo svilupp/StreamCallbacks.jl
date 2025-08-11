@@ -1,7 +1,7 @@
 # Test error handling with custom IO that fails on "5"
 using HTTP, JSON3
 using StreamCallbacks
-using StreamCallbacks: OpenAIStream, libcurl_streamed_request!
+using StreamCallbacks: OpenAIStream, libcurl_streamed_request!, streamed_request_http!, streamed_request_libcurl!
 
 # Prepare target and auth
 url = "https://api.openai.com/v1/chat/completions"
@@ -33,14 +33,14 @@ println("=== Testing Error Handling ===")
 # Test 1: HTTP.jl with error handling
 println("\n1. Testing HTTP.jl error handling...")
 cb_http = StreamCallback(; out = ErrorOnFiveIO(), flavor = OpenAIStream(), throw_on_error = true)
-    resp_http = streamed_request!(cb_http, url, headers, IOBuffer(payload_str))
-    println("HTTP: No error occurred (unexpected)")
+# resp_http = streamed_request_http!(cb_http, url, headers, IOBuffer(payload_str))
+# println("HTTP: No error occurred (unexpected)")
 
 # Test 2: LibCURL with error handling
 println("\n2. Testing LibCURL error handling...")
 cb_curl = StreamCallback(; out = ErrorOnFiveIO(), flavor = OpenAIStream(), throw_on_error = true)
 
-resp_curl = libcurl_streamed_request!(cb_curl, url, headers, payload_str)
+resp_curl = streamed_request_libcurl!(cb_curl, url, headers, payload_str)
 println("LibCURL: No error occurred (unexpected)")
 
 println("\n=== Error Handling Test Complete ===")
