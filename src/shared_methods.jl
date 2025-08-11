@@ -214,6 +214,9 @@ Returns the response object.
 - `kwargs`: Additional keyword arguments.
 """
 function streamed_request!(cb::AbstractStreamCallback, url, headers, input; kwargs...)
+    streamed_request_libcurl!(cb, url, headers, input; kwargs...)
+end
+function streamed_request_http!(cb::AbstractStreamCallback, url, headers, input; kwargs...)
     verbose = get(kwargs, :verbose, false) || cb.verbose
     resp = HTTP.open("POST", url, headers; kwargs...) do stream
         write(stream, String(take!(input)))

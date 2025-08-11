@@ -2,11 +2,11 @@
 using LibCURL
 
 """
-    curl_write_callback(ptr::Ptr{UInt8}, size::Csize_t, nmemb::Csize_t, userdata::Ptr{Cvoid})
+    stream_write_callback(ptr::Ptr{UInt8}, size::Csize_t, nmemb::Csize_t, userdata::Ptr{Cvoid})
 
 Callback function for processing streaming response data from libcurl.
 """
-function curl_write_callback(ptr::Ptr{UInt8}, size::Csize_t, nmemb::Csize_t, userdata::Ptr{Cvoid})::Csize_t
+function stream_write_callback(ptr::Ptr{UInt8}, size::Csize_t, nmemb::Csize_t, userdata::Ptr{Cvoid})::Csize_t
     callback_data = unsafe_pointer_to_objref(userdata)
     cb, spillover_ref, isdone_ref, verbose = callback_data[]
     
@@ -36,11 +36,11 @@ function curl_write_callback(ptr::Ptr{UInt8}, size::Csize_t, nmemb::Csize_t, use
 end
 
 """
-    curl_header_callback_impl(ptr::Ptr{UInt8}, size::Csize_t, nmemb::Csize_t, userdata::Ptr{Cvoid})
+    stream_header_callback(ptr::Ptr{UInt8}, size::Csize_t, nmemb::Csize_t, userdata::Ptr{Cvoid})
 
 Callback function for processing response headers from libcurl.
 """
-function curl_header_callback_impl(ptr::Ptr{UInt8}, size::Csize_t, nmemb::Csize_t, userdata::Ptr{Cvoid})::Csize_t
+function stream_header_callback(ptr::Ptr{UInt8}, size::Csize_t, nmemb::Csize_t, userdata::Ptr{Cvoid})::Csize_t
     header_data = unsafe_pointer_to_objref(userdata)
     response_headers, status_code = header_data[]
     
@@ -67,11 +67,11 @@ function curl_header_callback_impl(ptr::Ptr{UInt8}, size::Csize_t, nmemb::Csize_
 end
 
 """
-    libcurl_streamed_request!(cb::AbstractStreamCallback, url::String, headers::Vector, body::String; kwargs...)
+    streamed_request_libcurl!(cb::AbstractStreamCallback, url::String, headers::Vector, body::String; kwargs...)
 
 LibCURL-based implementation of streamed_request! with better performance and reliability.
 """
-function libcurl_streamed_request!(cb::AbstractStreamCallback, url::String, headers::Vector, body::String; kwargs...)
+function streamed_request_libcurl!(cb::AbstractStreamCallback, url::String, headers::Vector, body::String; kwargs...)
     verbose = get(kwargs, :verbose, false) || cb.verbose
     
     # Initialize curl handle
@@ -90,7 +90,7 @@ function libcurl_streamed_request!(cb::AbstractStreamCallback, url::String, head
         LibCURL.curl_easy_setopt(curl, LibCURL.CURLOPT_URL, url)
         LibCURL.curl_easy_setopt(curl, LibCURL.CURLOPT_POST, 1)
         LibCURL.curl_easy_setopt(curl, LibCURL.CURLOPT_POSTFIELDS, body)
-        LibCURL.curl_easy_setopt(curl, LibCURL.CURLOPT_POSTFIELDSIZE, length(body))
+        LibCURL.curl_easy_setopt(curl, LibCURL.CURLOPT_POSTFIELDSIZE, sizeof(body))
         
         # Set headers
         for (key, value) in headers
@@ -100,13 +100,13 @@ function libcurl_streamed_request!(cb::AbstractStreamCallback, url::String, head
         header_list != C_NULL && LibCURL.curl_easy_setopt(curl, LibCURL.CURLOPT_HTTPHEADER, header_list)
         
         # Write callback for streaming response data
-        write_callback = @cfunction(curl_write_callback, Csize_t, (Ptr{UInt8}, Csize_t, Csize_t, Ptr{Cvoid}))
+        write_callback = @cfunction(stream_write_callback, Csize_t, (Ptr{UInt8}, Csize_t, Csize_t, Ptr{Cvoid}))
         callback_data = Ref((cb, spillover, isdone, verbose))
         LibCURL.curl_easy_setopt(curl, LibCURL.CURLOPT_WRITEFUNCTION, write_callback)
         LibCURL.curl_easy_setopt(curl, LibCURL.CURLOPT_WRITEDATA, pointer_from_objref(callback_data))
         
         # Header callback for response headers
-        header_callback = @cfunction(curl_header_callback_impl, Csize_t, (Ptr{UInt8}, Csize_t, Csize_t, Ptr{Cvoid}))
+        header_callback = @cfunction(stream_header_callback, Csize_t, (Ptr{UInt8}, Csize_t, Csize_t, Ptr{Cvoid}))
         header_data = Ref((response_headers, status_code))
         LibCURL.curl_easy_setopt(curl, LibCURL.CURLOPT_HEADERFUNCTION, header_callback)
         LibCURL.curl_easy_setopt(curl, LibCURL.CURLOPT_HEADERDATA, pointer_from_objref(header_data))
@@ -142,7 +142,7 @@ function libcurl_streamed_request!(cb::AbstractStreamCallback, url::String, head
         
         # Create response object
         resp = (
-            status = final_status,
+            status = Int16(final_status),
             headers = collect(response_headers),
             body = JSON3.write(body_content)
         )
@@ -157,9 +157,9 @@ function libcurl_streamed_request!(cb::AbstractStreamCallback, url::String, head
 end
 
 """
-    libcurl_streamed_request!(cb::AbstractStreamCallback, url::String, headers::Vector, body::IOBuffer; kwargs...)
+    streamed_request_libcurl!(cb::AbstractStreamCallback, url::String, headers::Vector, body::IOBuffer; kwargs...)
 
 LibCURL-based implementation that accepts IOBuffer input.
 """
-libcurl_streamed_request!(cb::AbstractStreamCallback, url::String, headers::Vector, body::IOBuffer; kwargs...) = 
-    libcurl_streamed_request!(cb, url, headers, String(take!(body)); kwargs...)
+streamed_request_libcurl!(cb::AbstractStreamCallback, url::String, headers::Vector, body::IOBuffer; kwargs...) = 
+    streamed_request_libcurl!(cb, url, headers, String(take!(body)); kwargs...)
