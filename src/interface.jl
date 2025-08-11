@@ -1,5 +1,3 @@
-using PromptingTools: AbstractStreamCallback
-
 
 # This file defines the core interface for the StreamCallbacks.jl package
 #
@@ -155,3 +153,8 @@ function Base.show(io::IO, cb::StreamCallback)
     print(io,
         "StreamCallback(out=$(cb.out), flavor=$(cb.flavor), chunks=$(length(cb.chunks)) items, $(cb.verbose ? "verbose" : "silent"), $(cb.throw_on_error ? "throw_on_error" : "no_throw"))")
 end
+
+Base.empty!(cb::AbstractHTTPStreamCallback) = empty!(cb.chunks)
+Base.push!(cb::AbstractHTTPStreamCallback, chunk::StreamChunk) = push!(cb.chunks, chunk)
+Base.isempty(cb::AbstractHTTPStreamCallback) = isempty(cb.chunks)
+Base.length(cb::AbstractHTTPStreamCallback) = length(cb.chunks)

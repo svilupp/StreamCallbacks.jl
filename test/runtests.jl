@@ -16,4 +16,5 @@ using StreamCallbacks: AbstractStreamFlavor, OpenAIStream, AnthropicStream, Stre
     include("stream_openai.jl")
     include("stream_anthropic.jl")
     include("stream_ollama.jl")
+    include("streaming.jl")
 end

@@ -1,4 +1,4 @@
-import PromptingTools: streamed_request!, configure_callback! # The 2 function we need to reimplement, including it, but redefining with prefix, because it is clearer
+using PromptingTools: AbstractOpenAISchema, AbstractAnthropicSchema, AbstractOllamaSchema, AbstractOllamaManagedSchema
 
 # ## Default methods
 """
@@ -275,7 +275,6 @@ function PromptingTools.streamed_request!(cb::AbstractHTTPStreamCallback, url, h
     return resp
 end
 
-# The same method which was in PromptingTools
 """
     configure_callback!(cb::AbstractHTTPStreamCallback, schema::AbstractPromptSchema;
         api_kwargs...)
