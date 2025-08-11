@@ -31,3 +31,7 @@ flavor = OllamaStream()
 is_done(flavor, example_chunk)
 extract_content(flavor, example_chunk)
 build_response_body(flavor, cb)
+
+## Streaming configuration
+cb = StreamCallback()
+configure_callback!(cb, OpenAISchema())

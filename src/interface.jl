@@ -1,3 +1,6 @@
+using PromptingTools: AbstractStreamCallback
+
+
 # This file defines the core interface for the StreamCallbacks.jl package
 #
 # The goal is to enable custom callbacks for streaming LLM APIs, 
@@ -11,8 +14,6 @@
 # which is a simple struct that holds the individual "chunks" (StreamChunk)
 # and presents the logic necessary for processing
 #
-# Top-level interface that wraps the HTTP.POST request and handles the streaming
-function streamed_request! end
 # It composes of the following interface functions
 # Extract the chunks from the received SSE blob. Returns a list of `StreamChunk`
 # At the moment, it's assumed to be generic enough for ANY API provider (TBU).
@@ -42,21 +43,7 @@ It must have the following fields:
 - `json`: The JSON object or `nothing` if the chunk does not contain JSON.
 """
 abstract type AbstractStreamChunk end
-
-"""
-    AbstractStreamCallback
-
-Abstract type for the stream callback.
-
-It must have the following fields:
-- `out`: The output stream, eg, `stdout` or a pipe.
-- `flavor`: The stream flavor which might or might not differ between different providers, eg, `OpenAIStream` or `AnthropicStream`.
-- `chunks`: The list of received `AbstractStreamChunk` chunks.
-- `verbose`: Whether to print verbose information.
-- `throw_on_error`: Whether to throw an error if an error message is detected in the streaming response.
-- `kwargs`: Any custom keyword arguments required for your use case.
-"""
-abstract type AbstractStreamCallback end
+abstract type AbstractHTTPStreamCallback <: AbstractStreamCallback end
 
 """
     AbstractStreamFlavor
@@ -156,7 +143,7 @@ msg = aigenerate("Count from 1 to 10."; streamcallback)
 Note: If you provide a `StreamCallback` object to `aigenerate`, we will configure it and necessary `api_kwargs` via `configure_callback!` unless you specify the `flavor` field.
 If you provide a `StreamCallback` with a specific `flavor`, we leave all configuration to the user (eg, you need to provide the correct `api_kwargs`).
 """
-@kwdef mutable struct StreamCallback{T1 <: Any} <: AbstractStreamCallback
+@kwdef mutable struct StreamCallback{T1 <: Any} <: AbstractHTTPStreamCallback
     out::T1 = stdout
     flavor::Union{AbstractStreamFlavor, Nothing} = nothing
     chunks::Vector{<:StreamChunk} = StreamChunk[]
@@ -168,7 +155,3 @@ function Base.show(io::IO, cb::StreamCallback)
     print(io,
         "StreamCallback(out=$(cb.out), flavor=$(cb.flavor), chunks=$(length(cb.chunks)) items, $(cb.verbose ? "verbose" : "silent"), $(cb.throw_on_error ? "throw_on_error" : "no_throw"))")
 end
-Base.empty!(cb::AbstractStreamCallback) = empty!(cb.chunks)
-Base.push!(cb::AbstractStreamCallback, chunk::StreamChunk) = push!(cb.chunks, chunk)
-Base.isempty(cb::AbstractStreamCallback) = isempty(cb.chunks)
-Base.length(cb::AbstractStreamCallback) = length(cb.chunks)
