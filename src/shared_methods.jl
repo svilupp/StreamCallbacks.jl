@@ -1,6 +1,6 @@
+using PromptingTools: AbstractOpenAISchema, AbstractAnthropicSchema, AbstractOllamaSchema, AbstractOllamaManagedSchema
 
 # ## Default methods
-
 """
     extract_chunks(flavor::AbstractStreamFlavor, blob::AbstractString;
         spillover::AbstractString = "", verbose::Bool = false, kwargs...)
@@ -152,7 +152,7 @@ end
 print_content(::Nothing, ::AbstractString; kwargs...) = nothing
 
 """
-    callback(cb::AbstractStreamCallback, chunk::AbstractStreamChunk; kwargs...)
+    callback(cb::AbstractHTTPStreamCallback, chunk::AbstractStreamChunk; kwargs...)
 
 Process the chunk to be printed and print it. It's a wrapper for two operations:
 - extract the content from the chunk using `extract_content`
@@ -198,7 +198,7 @@ Handles error messages from the streaming response.
 end
 
 """
-    streamed_request!(cb::AbstractStreamCallback, url, headers, input; kwargs...)
+    streamed_request!(cb::AbstractHTTPStreamCallback, url, headers, input; kwargs...)
 
 End-to-end wrapper for POST streaming requests. 
 In-place modification of the callback object (`cb.chunks`) with the results of the request being returned.
@@ -213,7 +213,7 @@ Returns the response object.
 - `input`: A buffer with the request body.
 - `kwargs`: Additional keyword arguments.
 """
-function streamed_request!(cb::AbstractStreamCallback, url, headers, input; kwargs...)
+function PromptingTools.streamed_request!(cb::AbstractHTTPStreamCallback, url, headers, input; kwargs...)
     verbose = get(kwargs, :verbose, false) || cb.verbose
     resp = HTTP.open("POST", url, headers; kwargs...) do stream
         write(stream, String(take!(input)))
@@ -273,4 +273,43 @@ function streamed_request!(cb::AbstractStreamCallback, url, headers, input; kwar
     resp.body = JSON3.write(body)
 
     return resp
+end
+
+"""
+    configure_callback!(cb::AbstractHTTPStreamCallback, schema::AbstractPromptSchema;
+        api_kwargs...)
+
+Configures the callback `cb` for streaming with a given prompt schema.
+
+If no `cb.flavor` is provided, adjusts the `flavor` and the provided `api_kwargs` as necessary.
+Eg, for most schemas, we add kwargs like `stream = true` to the `api_kwargs`.
+
+If `cb.flavor` is provided, both `callback` and `api_kwargs` are left unchanged! You need to configure them yourself!
+"""
+function PromptingTools.configure_callback!(cb::AbstractHTTPStreamCallback, schema::AbstractPromptSchema;
+        api_kwargs...)
+    ## Check if we are in passthrough mode or if we should configure the callback
+    if isnothing(cb.flavor)
+        if schema isa AbstractOpenAISchema
+            ## Enable streaming for all OpenAI-compatible APIs
+            api_kwargs = (;
+                api_kwargs..., stream = true, stream_options = (; include_usage = true))
+            flavor = OpenAIStream()
+        elseif schema isa Union{AbstractAnthropicSchema, AbstractOllamaSchema}
+            api_kwargs = (; api_kwargs..., stream = true)
+            flavor = schema isa AbstractOllamaSchema ? OllamaStream() : AnthropicStream()
+        elseif schema isa AbstractOllamaManagedSchema
+            throw(ErrorException("OllamaManagedSchema is not supported for streaming. Use OllamaSchema instead."))
+        else
+            error("Unsupported schema type: $(typeof(schema)). Currently supported: OpenAISchema and AnthropicSchema.")
+        end
+        cb.flavor = flavor
+    end
+    return cb, api_kwargs
+end
+# method to build a callback from IO or Channel
+function PromptingTools.configure_callback!(
+        output_stream::Union{IO, Channel}, schema::AbstractPromptSchema)
+    cb = StreamCallback(out = output_stream)
+    return configure_callback!(cb, schema)
 end

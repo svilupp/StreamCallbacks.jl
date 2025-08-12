@@ -2,6 +2,10 @@ module StreamCallbacks
 
 using HTTP, JSON3
 using PrecompileTools
+import PromptingTools
+using PromptingTools: AbstractStreamCallback, AbstractPromptSchema
+using PromptingTools: configure_callback!, streamed_request!
+
 
 export StreamCallback, StreamChunk, OpenAIStream, AnthropicStream, OllamaStream,
        streamed_request!
