@@ -152,7 +152,7 @@ end
 print_content(::Nothing, ::AbstractString; kwargs...) = nothing
 
 """
-    callback(cb::AbstractStreamCallback, chunk::AbstractStreamChunk; kwargs...)
+    callback(cb::AbstractHTTPStreamCallback, chunk::AbstractStreamChunk; kwargs...)
 
 Process the chunk to be printed and print it. It's a wrapper for two operations:
 - extract the content from the chunk using `extract_content`
