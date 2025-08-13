@@ -8,25 +8,28 @@ Callback function for processing streaming response data from libcurl.
 """
 function stream_write_callback(ptr::Ptr{UInt8}, size::Csize_t, nmemb::Csize_t, userdata::Ptr{Cvoid})::Csize_t
     callback_data = unsafe_pointer_to_objref(userdata)
-    cb, spillover_ref, isdone_ref, verbose = callback_data[]
+    cb, spillover_ref, isdone_ref, verbose, error_body = callback_data[]
     
     # Read the data
     data_size = size * nmemb
     chunk_data = unsafe_string(ptr, data_size)
+    
+    # Always capture raw data for potential error responses
+    write(error_body, chunk_data)
     
     # Extract chunks using existing logic
     chunks, new_spillover = extract_chunks(
         cb.flavor, chunk_data; verbose, spillover=spillover_ref, cb.kwargs...)
     
     # Update spillover
-    callback_data[] = (cb, new_spillover, isdone_ref, verbose)
+    callback_data[] = (cb, new_spillover, isdone_ref, verbose, error_body)
     
     # Process chunks
     for chunk in chunks
         verbose && @debug "Chunk Data: $(chunk.data)"
         handle_error_message(chunk; throw_on_error=cb.throw_on_error, verbose, cb.kwargs...)
         if is_done(cb.flavor, chunk; verbose, cb.kwargs...)
-            callback_data[] = (cb, new_spillover, true, verbose)
+            callback_data[] = (cb, new_spillover, true, verbose, error_body)
         end
         callback(cb, chunk)
         push!(cb, chunk)
@@ -83,6 +86,7 @@ function streamed_request_libcurl!(cb::AbstractStreamCallback, url::String, head
     status_code = Ref{Int}(0)
     spillover = ""
     isdone = false
+    error_body = IOBuffer()
     header_list = C_NULL
 
     try
@@ -101,7 +105,7 @@ function streamed_request_libcurl!(cb::AbstractStreamCallback, url::String, head
         
         # Write callback for streaming response data
         write_callback = @cfunction(stream_write_callback, Csize_t, (Ptr{UInt8}, Csize_t, Csize_t, Ptr{Cvoid}))
-        callback_data = Ref((cb, spillover, isdone, verbose))
+        callback_data = Ref((cb, spillover, isdone, verbose, error_body))
         LibCURL.curl_easy_setopt(curl, LibCURL.CURLOPT_WRITEFUNCTION, write_callback)
         LibCURL.curl_easy_setopt(curl, LibCURL.CURLOPT_WRITEDATA, pointer_from_objref(callback_data))
         
@@ -126,12 +130,35 @@ function streamed_request_libcurl!(cb::AbstractStreamCallback, url::String, head
         LibCURL.curl_easy_getinfo(curl, LibCURL.CURLINFO_RESPONSE_CODE, status_ref)
         final_status = Int(status_ref[])
         
-        # Verify content type
+        # Check for HTTP error status codes first
+        if final_status >= 400
+            content_type = get(response_headers, "content-type", "")
+            error_body_str = String(take!(error_body))
+            
+            error_msg = """
+            HTTP Error $(final_status): Request failed
+            Response headers:\n - $(join(["$k: $v" for (k,v) in response_headers], "\n - "))"""
+            
+            if occursin("application/json", lowercase(content_type)) && !isempty(error_body_str)
+                error_msg *= "\nError response body: $(error_body_str)"
+            end
+            
+            error(error_msg * "\nPlease check your request parameters, API key, and model availability.")
+        end
+        
+        # Verify content type for successful responses
         content_type = get(response_headers, "content-type", "")
-        if cb.flavor isa OllamaStream
-            @assert occursin("application/x-ndjson", lowercase(content_type)) "For OllamaStream flavor, Content-Type must be application/x-ndjson"
-        else
-            @assert occursin("text/event-stream", lowercase(content_type)) "Content-Type must be text/event-stream"
+        expected_type = cb.flavor isa OllamaStream ? "application/x-ndjson" : "text/event-stream"
+        
+        if !occursin(expected_type, lowercase(content_type))
+            flavor_name = cb.flavor isa OllamaStream ? "OllamaStream" : "streaming"
+            error("""
+            For $(flavor_name) flavor, Content-Type must be $(expected_type).
+            Received type: $(content_type)
+            Status code: $(final_status)
+            Response headers:\n - $(join(["$k: $v" for (k,v) in response_headers], "\n - "))
+            Please check the model you are using and that you set `stream=true`.
+            """)
         end
         
         # Aesthetic newline for stdout

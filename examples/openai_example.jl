@@ -2,7 +2,7 @@
 using HTTP, JSON3
 using StreamCallbacks
 using StreamCallbacks: OpenAIStream
-using StreamCallbacks: libcurl_streamed_request!
+using StreamCallbacks: streamed_request_libcurl!
 
 # Prepare target and auth
 url = "https://api.openai.com/v1/chat/completions"
@@ -24,18 +24,18 @@ function StreamCallbacks.print_content(out::ErrorOnFiveIO, text::AbstractString;
 end
 
 # Send the request
-# cb = StreamCallback(; out = stdout, flavor = OpenAIStream(), throw_on_error = false)
-cb = StreamCallback(; out = ErrorOnFiveIO(), flavor = OpenAIStream(), throw_on_error = true)
-very_long_text = ["(Just some random text $i.) " for i in 1:100_000] |> join
+cb = StreamCallback(; out = stdout, flavor = OpenAIStream(), throw_on_error = true)
+# cb = StreamCallback(; out = ErrorOnFiveIO(), flavor = OpenAIStream(), throw_on_error = true)
+very_long_text = ["(Just some random text $i.) " for i in 1:1] |> join
 # very_long_text = ""
-messages = [Dict("role" => "user", "content" => very_long_text * "Count from 1 to 10.")]
+messages = [Dict("role" => "user", "content" => very_long_text * "Count from 1 to 100.")]
 using LLMRateLimiters
 # @show LLMRateLimiters.estimate_tokens(messages[1]["content"])
 
 #
 payload = IOBuffer()
 JSON3.write(payload,
-    (; stream = true, messages, model = "gpt-4o-mini",
+    (; stream = true, messages, model = "gpt-5-mini",
         stream_options = (; include_usage = true)))
 
 # Test different streaming methods:
@@ -50,7 +50,7 @@ JSON3.write(payload,
 # 3. LibCURL-based streaming (recommended)
 # Clear chunks from previous test to avoid accumulation
 empty!(cb.chunks)
-resp = @time libcurl_streamed_request!(cb, url, headers, payload);
+resp = @time streamed_request_libcurl!(cb, url, headers, payload);
 @show resp
 ;
 ## Check the response
