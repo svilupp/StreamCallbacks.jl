@@ -136,8 +136,7 @@ function streamed_request_libcurl!(cb::AbstractStreamCallback, url::String, head
             error_body_str = String(take!(error_body))
             
             error_msg = """
-            HTTP Error $(final_status): Request failed
-            Response headers:\n - $(join(["$k: $v" for (k,v) in response_headers], "\n - "))"""
+            HTTP Error $(final_status): Request failed"""
             
             if occursin("application/json", lowercase(content_type)) && !isempty(error_body_str)
                 error_msg *= "\nError response body: $(error_body_str)"
@@ -156,7 +155,6 @@ function streamed_request_libcurl!(cb::AbstractStreamCallback, url::String, head
             For $(flavor_name) flavor, Content-Type must be $(expected_type).
             Received type: $(content_type)
             Status code: $(final_status)
-            Response headers:\n - $(join(["$k: $v" for (k,v) in response_headers], "\n - "))
             Please check the model you are using and that you set `stream=true`.
             """)
         end
