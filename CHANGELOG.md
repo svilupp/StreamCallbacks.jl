@@ -10,9 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-## [0.6.2]
+## [0.7.0]
 
-### Fixed
+### Added
+- Support for OpenAI Response API streaming with new `ResponseStream` flavor
+- Reasoning token streaming support with italic formatting for reasoning summary text
+- Event-based streaming processing for Response API (`response.output_text.delta`, `response.reasoning_summary_text.delta`, etc.)
+- Automatic response body reconstruction from Response API streaming chunks
+
+## [0.6.2]
+
+### Fixed
 - Fixes a bug in processing SSE messages in `data: ` strings in the payload of the message
 
 ## [0.6.1]
