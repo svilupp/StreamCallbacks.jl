@@ -191,7 +191,7 @@ Handles error messages from the streaming response.
         if throw_on_error
             throw(ErrorException(error_msg))
         else
-            @warn error_msg
+            throw(ErrorException(error_msg))
         end
     end
     return nothing
@@ -225,6 +225,7 @@ function streamed_request!(cb::AbstractStreamCallback, url, headers, input::Dict
 end
 function streamed_request!(cb::AbstractStreamCallback, url, headers, input::String; kwargs...)
     streamed_request_http!(cb, url, headers, input; kwargs...)
+    # streamed_request_libcurl!(cb, url, headers, input; kwargs...)
 end
 function streamed_request_http!(cb::AbstractStreamCallback, url, headers, input::String; kwargs...)
     verbose = get(kwargs, :verbose, false) || cb.verbose
