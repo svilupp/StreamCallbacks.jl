@@ -2,7 +2,7 @@
 using HTTP, JSON3
 using StreamCallbacks
 using StreamCallbacks: OpenAIStream
-using StreamCallbacks: streamed_request_libcurl!
+using StreamCallbacks: libcurl_streamed_request!
 
 # Prepare target and auth
 url = "https://api.openai.com/v1/chat/completions"
@@ -18,24 +18,29 @@ ErrorOnFiveIO() = ErrorOnFiveIO(String[])
 
 function StreamCallbacks.print_content(out::ErrorOnFiveIO, text::AbstractString; kwargs...)
     push!(out.buffer, text)
+    print(text)
     if occursin("5", text)
-        error("Custom IO error: Found forbidden number '5' in: $(text)")
+        # error("Custom IO error: Found forbidden number '5' in: $(text)")
     end
 end
 
 # Send the request
-cb = StreamCallback(; out = stdout, flavor = OpenAIStream(), throw_on_error = true)
-# cb = StreamCallback(; out = ErrorOnFiveIO(), flavor = OpenAIStream(), throw_on_error = true)
+# cb = StreamCallback(; out = stdout, flavor = OpenAIStream(), throw_on_error = false)
+cb = StreamCallback(; out = ErrorOnFiveIO(), flavor = OpenAIStream(), throw_on_error = true)
+# cb = StreamCallback(; out = ErrorOnFiveIO(), flavor = AnthropicStream(), throw_on_error = true)
+using JLD2
+# @load "call_error.jld2" url headers body kwargs
+# @show typeof(headers)
 very_long_text = ["(Just some random text $i.) " for i in 1:1] |> join
 # very_long_text = ""
-messages = [Dict("role" => "user", "content" => very_long_text * "Count from 1 to 100.")]
+messages = [Dict("role" => "user", "content" => very_long_text * "Count from 1 to 10.")]
 using LLMRateLimiters
 # @show LLMRateLimiters.estimate_tokens(messages[1]["content"])
 
 #
 payload = IOBuffer()
 JSON3.write(payload,
-    (; stream = true, messages, model = "gpt-5-mini",
+    (; stream = true, messages, model = "gpt-4o-mini",
         stream_options = (; include_usage = true)))
 
 # Test different streaming methods:
@@ -49,8 +54,13 @@ JSON3.write(payload,
 
 # 3. LibCURL-based streaming (recommended)
 # Clear chunks from previous test to avoid accumulation
-empty!(cb.chunks)
-resp = @time streamed_request_libcurl!(cb, url, headers, payload);
+body_dict = JSON3.read(body, Dict)
+# @show body_dict
+# body_dict["system"][1]["text"] = "Count from 1 to 10."
+body_str = String(JSON3.write(body_dict))
+@show body_str
+# empty!(cb.chunks)
+resp = @time streamed_request_libcurl!(cb, url, headers, body_str; kwargs...);
 @show resp
 ;
 ## Check the response

@@ -189,9 +189,9 @@ Handles error messages from the streaming response.
         ## Define whether to throw an error
         error_msg = "Error detected in the streaming response: $(error_str)"
         if throw_on_error
-            throw(Exception(error_msg))
+            throw(ErrorException(error_msg))
         else
-            @warn error_msg
+            throw(ErrorException(error_msg))
         end
     end
     return nothing
@@ -213,10 +213,24 @@ Returns the response object.
 - `input`: A buffer with the request body.
 - `kwargs`: Additional keyword arguments.
 """
-function streamed_request!(cb::AbstractStreamCallback, url, headers, input; kwargs...)
+
+function streamed_request!(cb::AbstractStreamCallback, url, headers, input::IOBuffer; kwargs...)
+    streamed_request!(cb, url, headers, String(take!(input)); kwargs...)
+end
+function streamed_request!(cb::AbstractStreamCallback, url, headers, input::IO; kwargs...)
+    streamed_request!(cb, url, headers, read(input); kwargs...)
+end
+function streamed_request!(cb::AbstractStreamCallback, url, headers, input::Dict; kwargs...)
+    streamed_request!(cb, url, headers, String(JSON3.write(input)); kwargs...)
+end
+function streamed_request!(cb::AbstractStreamCallback, url, headers, input::String; kwargs...)
+    streamed_request_http!(cb, url, headers, input; kwargs...)
+    # streamed_request_libcurl!(cb, url, headers, input; kwargs...)
+end
+function streamed_request_http!(cb::AbstractStreamCallback, url, headers, input::String; kwargs...)
     verbose = get(kwargs, :verbose, false) || cb.verbose
     resp = HTTP.open("POST", url, headers; kwargs...) do stream
-        write(stream, String(take!(input)))
+        write(stream, input)
         HTTP.closewrite(stream)
         response = HTTP.startread(stream)
 
