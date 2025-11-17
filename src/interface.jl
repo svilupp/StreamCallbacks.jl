@@ -66,11 +66,14 @@ Abstract type for the stream flavor, ie, the API provider.
 Available flavors:
 - `OpenAIStream` for OpenAI API
 - `AnthropicStream` for Anthropic API
+- `OllamaStream` for Ollama API
+- `ResponseStream` for OpenAI Response API
 """
 abstract type AbstractStreamFlavor end
 struct OpenAIStream <: AbstractStreamFlavor end
 struct AnthropicStream <: AbstractStreamFlavor end
 struct OllamaStream <: AbstractStreamFlavor end
+struct ResponseStream <: AbstractStreamFlavor end
 
 ## Default implementations
 """
