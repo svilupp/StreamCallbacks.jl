@@ -1,37 +1,5 @@
 # Tests for OpenAI Responses API streaming
 
-# Helper to load fixture and parse into chunks
-function load_responses_fixture(filename)
-    filepath = joinpath(@__DIR__, "fixtures", filename)
-    content = read(filepath, String)
-    chunks = StreamChunk[]
-
-    for block in split(content, "\n\n")
-        isempty(strip(block)) && continue
-        event_name = nothing
-        data_content = ""
-
-        for line in split(block, '\n')
-            line = rstrip(line, '\r')
-            if startswith(line, "event: ")
-                event_name = Symbol(strip(line[8:end]))
-            elseif startswith(line, "data: ")
-                data_content = strip(line[7:end])
-            end
-        end
-
-        if !isempty(data_content)
-            json = try
-                JSON3.read(data_content)
-            catch
-                nothing
-            end
-            push!(chunks, StreamChunk(event_name, data_content, json))
-        end
-    end
-    return chunks
-end
-
 @testset "OpenAIResponsesStream-is_done" begin
     flavor = OpenAIResponsesStream()
 

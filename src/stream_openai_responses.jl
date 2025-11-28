@@ -138,19 +138,21 @@ function build_response_body(
 
         # Add reasoning output if present
         if !isempty(final_reasoning)
-            push!(output, Dict{Symbol, Any}(
-                :type => "reasoning",
-                :summary => [Dict{Symbol, Any}(:type => "summary_text", :text => final_reasoning)]
-            ))
+            push!(output,
+                Dict{Symbol, Any}(
+                    :type => "reasoning",
+                    :summary => [Dict{Symbol, Any}(:type => "summary_text", :text => final_reasoning)]
+                ))
         end
 
         # Add message output
         if !isempty(final_text)
-            push!(output, Dict{Symbol, Any}(
-                :type => "message",
-                :role => "assistant",
-                :content => [Dict{Symbol, Any}(:type => "output_text", :text => final_text)]
-            ))
+            push!(output,
+                Dict{Symbol, Any}(
+                    :type => "message",
+                    :role => "assistant",
+                    :content => [Dict{Symbol, Any}(:type => "output_text", :text => final_text)]
+                ))
         end
 
         # Only override output if we assembled content and response.completed
