@@ -16,7 +16,12 @@ StreamCallbacks.jl is designed to unify streaming interfaces for Large Language 
 ## Supported Providers
 
 - **OpenAI API** (and all compatible providers)
-- **Anthropic API**
+  - `OpenAIChatStream` (alias: `OpenAIStream`) for Chat Completions API (`/v1/chat/completions`)
+  - `OpenAIResponsesStream` for Responses API (`/v1/responses`)
+- **Anthropic API** (`AnthropicStream`)
+- **Ollama API** (`OllamaStream` for `/api/chat` endpoint)
+
+When used with PromptingTools.jl, these flavors map to `AbstractOpenAISchema` and `AbstractOpenAIResponsesSchema` respectively.
 
 ## Installation
 
@@ -42,36 +47,44 @@ cb = StreamCallback(out = stdout)
 
 ## Usage Examples
 
-### Example with OpenAI API
+### OpenAI Chat Completions API
 
 ```julia
-using HTTP
-using JSON3
-using StreamCallbacks
+using HTTP, JSON3, StreamCallbacks
 
-# Prepare target URL and headers
 url = "https://api.openai.com/v1/chat/completions"
 headers = [
     "Content-Type" => "application/json",
-    "Authorization" => "Bearer $(get(ENV, "OPENAI_API_KEY", ""))"
+    "Authorization" => "Bearer $(ENV["OPENAI_API_KEY"])"
 ]
 
-# Create a StreamCallback object
-cb = StreamCallback(out = stdout, flavor = OpenAIStream())
-
-# Prepare the request payload
-messages = [Dict("role" => "user", "content" => "Count from 1 to 100.")]
+cb = StreamCallback(out = stdout, flavor = OpenAIChatStream())
+messages = [Dict("role" => "user", "content" => "What is 2+2?")]
 payload = IOBuffer()
 JSON3.write(payload, (; stream = true, messages, model = "gpt-4o-mini", stream_options = (; include_usage = true)))
 
-# Send the streamed request
 resp = streamed_request!(cb, url, headers, payload)
-
-# Check the response
-println("Response status: ", resp.status)
 ```
 
-**Note**: For debugging, you can set `verbose = true` in the `StreamCallback` constructor to get detailed logs of each chunk. Ensure you enable DEBUG logging level in your environment.
+### OpenAI Responses API
+
+```julia
+using HTTP, JSON3, StreamCallbacks
+
+url = "https://api.openai.com/v1/responses"
+headers = [
+    "Content-Type" => "application/json",
+    "Authorization" => "Bearer $(ENV["OPENAI_API_KEY"])"
+]
+
+cb = StreamCallback(out = stdout, flavor = OpenAIResponsesStream())
+payload = IOBuffer()
+JSON3.write(payload, (; stream = true, input = "What is 2+2?", model = "gpt-4o-mini"))
+
+resp = streamed_request!(cb, url, headers, payload)
+```
+
+**Note**: For debugging, set `verbose = true` in the `StreamCallback` constructor and enable DEBUG logging level.
 
 ### Example with PromptingTools.jl
 

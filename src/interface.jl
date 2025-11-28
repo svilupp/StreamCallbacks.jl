@@ -64,11 +64,15 @@ abstract type AbstractStreamCallback end
 Abstract type for the stream flavor, ie, the API provider.
 
 Available flavors:
-- `OpenAIStream` for OpenAI API
+- `OpenAIStream` / `OpenAIChatStream` for OpenAI Chat Completions API
+- `OpenAIResponsesStream` for OpenAI Responses API
 - `AnthropicStream` for Anthropic API
+- `OllamaStream` for Ollama API
 """
 abstract type AbstractStreamFlavor end
 struct OpenAIStream <: AbstractStreamFlavor end
+const OpenAIChatStream = OpenAIStream
+struct OpenAIResponsesStream <: AbstractStreamFlavor end
 struct AnthropicStream <: AbstractStreamFlavor end
 struct OllamaStream <: AbstractStreamFlavor end
 

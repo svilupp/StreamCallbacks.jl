@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.7.0]
+
+### Added
+- Added `OpenAIResponsesStream` flavor for OpenAI Responses API (see `examples/openai_responses_example.jl`)
+
 ## [0.6.2]
 
 ### Fixed
