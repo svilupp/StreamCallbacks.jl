@@ -153,10 +153,9 @@ function build_response_body(
             ))
         end
 
-        # Only override output if we assembled content
-        # (response.completed already has the full output array)
-        if !isempty(output) && (isempty(final_text) == false || isempty(final_reasoning) == false)
-            # Check if response already has good output data from response.completed
+        # Only override output if we assembled content and response.completed
+        # didn't already provide the full output array
+        if !isempty(output)
             existing_output = get(response, :output, [])
             if isempty(existing_output)
                 response[:output] = output

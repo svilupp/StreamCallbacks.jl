@@ -18,4 +18,5 @@ using StreamCallbacks: AbstractStreamFlavor, OpenAIStream, OpenAIChatStream, Ope
     include("stream_anthropic.jl")
     include("stream_ollama.jl")
     include("integration_mock_server.jl")
+    include("promptingtools_compatibility.jl")
 end
