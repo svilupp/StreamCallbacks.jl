@@ -13,12 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.7.0]
 
 ### Added
-- Added `OpenAIResponsesStream` flavor for OpenAI Responses API (`/v1/responses`)
-- Added `OpenAIChatStream` as the preferred name for Chat Completions API (with `OpenAIStream` as alias)
-- Added integration tests with fixture-based SSE server
-- Added `examples/openai_responses_example.jl` for Responses API usage
-- Renamed `examples/openai_example.jl` to `examples/openai_chat_example.jl`
-- Updated documentation to cover both OpenAI API flavors
+- Added `OpenAIResponsesStream` flavor for OpenAI Responses API (see `examples/openai_responses_example.jl`)
 
 ## [0.6.2]
 
