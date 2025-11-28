@@ -92,7 +92,7 @@ purpose = "Library to unify streaming interfaces for LLMs across many providers.
 # # Update README
 task = """Update the provided README.md file with best in class information for what the package could be. 
 Highlight that the package in experimental stage and under development (use strong warning at the top)."""
-user_files = files_to_prompt(["README.md", "examples/openai_example.jl"])
+user_files = files_to_prompt(["README.md", "examples/openai_chat_example.jl"])
 
 conv = aigenerate(tpl; pkg_name, purpose, user_files, task,
     model = "gpt4o", return_all = true)

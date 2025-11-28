@@ -1,8 +1,27 @@
-# Custom methods for OpenAI streaming -- flavor=OpenAIStream()
+# OpenAI Chat Completions API Streaming
+# ======================================
+#
+# This file implements streaming support for OpenAI's Chat Completions API
+# (POST /v1/chat/completions with stream=true).
+#
+# Flavor: OpenAIStream (aliased as OpenAIChatStream)
+#
+# SSE Format:
+#   - Uses only `data:` field (no `event:` field)
+#   - Content located at: choices[].delta.content
+#   - Stream termination: `data: [DONE]`
+#
+# Example SSE message:
+#   data: {"id":"chatcmpl-xxx","choices":[{"delta":{"content":"Hello"}}]}
+#
+# Note: For the newer OpenAI Responses API (/v1/responses), see stream_openai_responses.jl
+#       which handles the richer event-based streaming format.
+
 """
     is_done(flavor::OpenAIStream, chunk::AbstractStreamChunk; kwargs...)
 
-Check if the streaming is done. Shared by all streaming flavors currently.
+Check if the streaming is done for OpenAI Chat Completions API.
+Returns true when `data: [DONE]` is received.
 """
 @inline function is_done(flavor::OpenAIStream, chunk::AbstractStreamChunk; kwargs...)
     chunk.data == "[DONE]"
@@ -11,7 +30,8 @@ end
 """
     extract_content(flavor::OpenAIStream, chunk::AbstractStreamChunk; kwargs...)
 
-Extract the content from the chunk.
+Extract the content from a Chat Completions streaming chunk.
+Content is located at `choices[].delta.content`.
 """
 @inline function extract_content(
         flavor::OpenAIStream, chunk::AbstractStreamChunk; kwargs...)

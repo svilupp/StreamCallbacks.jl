@@ -3,13 +3,15 @@ module StreamCallbacks
 using HTTP, JSON3
 using PrecompileTools
 
-export StreamCallback, StreamChunk, OpenAIStream, AnthropicStream, OllamaStream,
-       streamed_request!
+export StreamCallback, StreamChunk, OpenAIStream, OpenAIChatStream, OpenAIResponsesStream,
+       AnthropicStream, OllamaStream, streamed_request!
 include("interface.jl")
 
 include("shared_methods.jl")
 
-include("stream_openai.jl")
+include("stream_openai_chat.jl")
+
+include("stream_openai_responses.jl")
 
 include("stream_anthropic.jl")
 

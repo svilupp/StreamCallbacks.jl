@@ -1,4 +1,4 @@
-# Calling OpenAI with StreamCallbacks
+# Calling OpenAI Chat Completions API with StreamCallbacks
 using HTTP, JSON3
 using StreamCallbacks
 
@@ -6,11 +6,11 @@ using StreamCallbacks
 url = "https://api.openai.com/v1/chat/completions"
 headers = [
     "Content-Type" => "application/json",
-    "Authorization" => "Bearer $(get(ENV, "OPENAI_API_KEY", ""))"
+    "Authorization" => "Bearer $(ENV["OPENAI_API_KEY"])"
 ];
 
 ## Send the request
-cb = StreamCallback(; out = stdout, flavor = OpenAIStream())
+cb = StreamCallback(; out = stdout, flavor = OpenAIChatStream())
 messages = [Dict("role" => "user",
     "content" => "Count from 1 to 100.")]
 payload = IOBuffer()
